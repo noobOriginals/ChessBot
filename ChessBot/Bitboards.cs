@@ -19,6 +19,24 @@ public class Bitboards {
         row0 <<= 8;
         return row0 | row1;
     }
+    public static ulong GenVertical(int idx, int rowcount, int offsetrows) {
+        ulong row = (ulong)(1 << (7 - idx));
+        for (int i = 0; i < rowcount - 1; i++) {
+            row = AddRows(row, row);
+        }
+        row <<= 8 * offsetrows;
+        return row;
+    }
+    public static ulong GenHorizontal(int idx, int count, int offsetrows) {
+        ulong row = 0;
+        for (int i = 0; i < count; i++) {
+            row <<= 1;
+            row |= 1;
+        }
+        row <<= 7 - (idx + count);
+        row <<= 8 * offsetrows;
+        return row;
+    }
 
     public static void Print(ulong bitboard) {
         Console.WriteLine("+---+---+---+---+---+---+---+---+");
@@ -39,18 +57,10 @@ public class Bitboards {
     }
 
     public static string Convert(ulong bitboard, uint numbase, int chars, bool reverse) {
-        if (numbase > 36) {
-            throw new Exception("Cannot convert to bases higher than 36. Given base: " + numbase + ".");
-        }
-        if (numbase < 2) {
-            throw new Exception("Cannot convert to base 1.");
-        }
-        if (chars > 64) {
-            throw new Exception("Cannot display numbers with more than 64 characters." + numbase);
-        }
-        if (chars < 0) {
-            throw new Exception("Cannot display numbers with less than 1 character.");
-        }
+        if (numbase > 36) throw new Exception("Cannot convert to bases higher than 36. Given base: " + numbase + ".");
+        if (numbase < 2) throw new Exception("Cannot convert to base 1.");
+        if (chars > 64) throw new Exception("Cannot display numbers with more than 64 characters." + numbase);
+        if (chars < 0) throw new Exception("Cannot display numbers with less than 1 character.");
         string alph = "0123456789abcdefghijklmnopqrstuvwxyz";
         string val = "";
         while (bitboard > 1) {
@@ -66,9 +76,7 @@ public class Bitboards {
         } else {
             val = alph.ElementAt((int)bitboard) + val;
         }
-        if (chars == 0) {
-            return val;
-        }
+        if (chars == 0) return val;
         int max = chars - val.Length;
         if (max < 0) {
             val = val.Substring(val.Length - chars, chars);

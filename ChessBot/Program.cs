@@ -7,9 +7,11 @@ class Program {
         // Board.PrintInfo();
         // Board.GenerateLegalMoves();
 
-        ulong b = 24260;
-        string bs = Bitboards.Convert(b, 36, 0, false);
-        Console.WriteLine(bs);
+        // ulong b = 24260;
+        // string bs = Bitboards.Convert(b, 36, 0, false);
+        // Console.WriteLine(bs);
         // Bitboards.Print(b);
+        ulong b = Bitboards.GenHorizontal(0, 2, 5);
+        Bitboards.Print(b);
     }
 }
