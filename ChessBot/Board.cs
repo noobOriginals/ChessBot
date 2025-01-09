@@ -16,7 +16,7 @@ public class Board {
     static int[] WhitePieces = new int[16];
     static int[] BlackPieces = new int[16];
     
-    // Reset(string fen): resets the board to the given FEN string position.
+    // Reset(fen): resets the board to the given FEN string position.
     // Reset(): resets the board to startpos with the respective FEN string.
     public static void Reset(string fen) {
         Square = new byte[64];

@@ -4,13 +4,25 @@ public class Move {
     // StartSquare, EndSquare: the simplest yet powerful representation of a move only by square indices.
     public int StartSquare, EndSquare;
 
-    // Move(int StartSquare, int EndSquare): initializes member variables.
-    // Move(string move): generates a move base on a sigle string in ?long algebraic? notation (e.g. e2e3).
-    public Move(int StartSquare, int EndSquare) {
-        this.StartSquare = StartSquare;
-        this.EndSquare = EndSquare;
+    // Move(startSquare, endSquare): initializes member variables.
+    // Move(move): generates a move base on a sigle string in ?long algebraic? notation (e.g. e2e3).
+    // Move(startSquare, endSquare): generates a move based on a start and end square provided as strings.
+    public Move(int startSquare, int endSquare) {
+        StartSquare = startSquare;
+        EndSquare = endSquare;
     }
     public Move(string move) {
+        string alph = "abcdefgh";
+        int rank, file;
+        rank = 8 - int.Parse(move.ElementAt(1).ToString());
+        file = alph.IndexOf(move.ElementAt(0));
+        StartSquare = rank * 8 + file;
+        rank = 8 - int.Parse(move.ElementAt(3).ToString());
+        file = alph.IndexOf(move.ElementAt(2));
+        EndSquare = rank * 8 + file;
+    }
+    public Move(string startSquare, string endSquare) {
+        string  move = startSquare + endSquare;
         string alph = "abcdefgh";
         int rank, file;
         rank = 8 - int.Parse(move.ElementAt(1).ToString());

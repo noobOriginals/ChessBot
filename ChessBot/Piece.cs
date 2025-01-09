@@ -12,10 +12,10 @@ public class Piece {
     public const byte Queen = 0b101;
     public const byte King = 0b110;
 
-    // GetPieceColor(byte piece): returns the color of the piece equivalent to the color constant of the piece.
-    // GetPieceType(byte piece): returns the type of the piece equivalent to the type constant of the piece.
-    // IsColor(byte piece, byte color): returns true or false depending of the piece matching the color given;
-    // IsType(byte piece, byte type): returns true or false depending of the piece matching the type given;
+    // GetPieceColor(piece): returns the color of the piece equivalent to the color constant of the piece.
+    // GetPieceType(piece): returns the type of the piece equivalent to the type constant of the piece.
+    // IsColor(piece, color): returns true or false depending of the piece matching the color given;
+    // IsType(piece, type): returns true or false depending of the piece matching the type given;
     public static byte GetPieceColor(byte piece) {
         piece = (byte) (piece >> 3);
         return (byte) (piece << 3);;
@@ -31,8 +31,8 @@ public class Piece {
         return GetPieceType(piece) == type;
     }
 
-    // ToChar(byte piece): based on a sigle character, returns a piece with a certain type. Useful for reading FEN's
-    // ToPiece(char value): based on a piece, returns a single character representing that piece. Useful for creating FEN's
+    // ToChar(piece): based on a sigle character, returns a piece with a certain type. Useful for reading FEN's
+    // ToPiece(value): based on a piece, returns a single character representing that piece. Useful for creating FEN's
     public static char ToChar(byte piece) {
         bool uppercase = IsColor(piece, White);
         piece = GetPieceType(piece);

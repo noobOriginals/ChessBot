@@ -1,4 +1,6 @@
-﻿namespace ChessBot;
+﻿using System.Drawing;
+
+namespace ChessBot;
 
 class Program {
     static void Main(string[] args) {
@@ -7,11 +9,9 @@ class Program {
         // Board.PrintInfo();
         // Board.GenerateLegalMoves();
 
-        // ulong b = 24260;
-        // string bs = Bitboards.Convert(b, 36, 0, false);
-        // Console.WriteLine(bs);
-        // Bitboards.Print(b);
-        ulong b = Bitboards.GenHorizontal(0, 2, 5);
-        Bitboards.Print(b);
+        Bitboards.Print(Bitboards.GenDiagLeft(7, 4, 4, false));
+        Bitboards.Print(Bitboards.GenDiagLeft(4, 4, 4, true));
+        Bitboards.Print(Bitboards.GenDiagRight(0, 4, 4, false));
+        Bitboards.Print(Bitboards.GenDiagLeft(4, 0, 0, false));
     }
 }
