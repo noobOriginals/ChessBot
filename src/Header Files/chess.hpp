@@ -19,7 +19,6 @@
 namespace chess {
 
 typedef uint8_t Piece;
-typedef Move* Moves;
 
 long nanoTime();
 
@@ -42,17 +41,14 @@ struct Move {
     std::string toString();
     static Move fromEnPassantTargetSquare(std::string targetSquare);
 };
+typedef Move* Moves;
 namespace board {
-    Piece square[64] = {};
-    bool castleRights[4] = {};
-    bool whiteToMove = true;
-    Move lastMove;
-    uint32_t halfMoves = 0, fullMoves = 0;
-    uint32_t whitePieces[16] = {}, blackPieces[16] = {};
     void reset(std::string fen);
     void reset();
     Piece** to2DArray();
     Moves generateLegalMoves();
+    void print();
+    void printInfo();
 }
 
 }

@@ -7,8 +7,8 @@ namespace chess {
 constexpr char* alphabet = "abcdefgh";
 
 long nanoTime() {
-    auto now = std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now());
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+    auto now = chrono::time_point_cast<chrono::nanoseconds>(chrono::system_clock::now());
+    return chrono::duration_cast<chrono::nanoseconds>(now.time_since_epoch()).count();
 }
 
 namespace piece {
@@ -90,7 +90,7 @@ Move::Move(string start, string end) {
     file = string(alphabet).find_first_of(move[2]);
     endSquare = rank * 8 + file;
 }
-std::string Move::toString() {
+string Move::toString() {
     string move = "";
     string alph = "abcdefgh";
     int rank, file;
@@ -104,7 +104,7 @@ std::string Move::toString() {
     move += "" + rank;
     return move;
 }
-Move Move::fromEnPassantTargetSquare(std::string targetSquare) {
+Move Move::fromEnPassantTargetSquare(string targetSquare) {
     string file = string(1, targetSquare[0]);
     Move move;
     if (targetSquare[1] == '3') {
@@ -113,6 +113,137 @@ Move Move::fromEnPassantTargetSquare(std::string targetSquare) {
         move = Move(file + "7" + file + "5");
     }
     return move;
+}
+
+namespace board {
+    Piece square[64] = {};
+    bool castleRights[4] = {};
+    bool whiteToMove = true;
+    Move lastMove;
+    uint32_t halfMoves = 0, fullMoves = 0;
+    uint32_t whitePieces[16], blackPieces[16];
+
+    void reset(string fen) {
+        for (int i = 0; i < 64; i++) square[i] = 0;
+        for (int i = 0; i < 4; i++) castleRights[i] = 0;
+        for (int i = 0; i < 16; i++) whitePieces[i] = 0;
+        for (int i = 0; i < 16; i++) blackPieces[i] = 0;
+        int wpi = 0, bpi = 0;
+        char c;
+        int s = 0;
+        int last = 0;
+        for (int i = 0; i < fen.length(); i++) {
+            c = fen[i];
+            if (c < 58 && c > 47) {
+                s += stoi(string(1, c));
+            } else if (c == '/') {
+                s += (s % 8 == 0) ? 0 : 8 - (s % 8);
+            } else {
+                Piece piece = piece::toPiece(c);
+                square[s] = piece;
+                if (piece::isColor(piece, White)) {
+                    whitePieces[wpi] = s;
+                    wpi++;
+                } else {
+                    blackPieces[bpi] = s;
+                    bpi++;
+                }
+                s++;
+            }
+            if (s > 63) {
+                last = i;
+                break;
+            }
+        }
+        last += 2;
+        c = fen[last];
+        whiteToMove = (c == 'w');
+        last += 2;
+        string castle = fen.substr(last, fen.find_first_of(' ', last));
+        if (castle.length() > 0) {
+            last = fen.find_first_of(' ', last);
+            for (int i = 0; i < castle.length(); i++) {
+                c = castle[i];
+                switch (c) {
+                    case 'K':
+                        castleRights[0] = true;
+                        break;
+                    case 'Q':
+                        castleRights[1] = true;
+                        break;
+                    case 'k':
+                        castleRights[2] = true;
+                        break;
+                    case 'q':
+                        castleRights[3] = true;
+                        break;
+                }
+            }
+        }
+        last++;
+        c = fen[last];
+        if (c != '-') {
+            string en = fen.substr(last, fen.find_first_of(' ', last));
+            lastMove = Move::fromEnPassantTargetSquare(en);
+        } else {
+            lastMove = Move();
+        }
+        last = fen.find_first_of(' ', last) + 1;
+        string hm = fen.substr(last, fen.find_first_of(' ', last));
+        halfMoves = stoi(hm);
+        last = fen.find_first_of(' ', last) + 1;
+        string fm = fen.substr(last);
+        fullMoves = stoi(fm);
+    }
+    void reset() { reset("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"); }
+    Piece** to2DArray() {
+        Piece** square = (Piece**)malloc(sizeof(Piece*) * 8);
+        for (int i = 0; i < 8; i++) square[i] = (Piece*)malloc(sizeof(Piece) * 8);
+        for (int i = 0; i < 64; i++) {
+            int file, rank;
+            file = i % 8;
+            rank = (i - file) / 8;
+            square[rank][file] = board::square[i];
+        }
+        return square;
+    }
+    void print() {
+        cout << "+---+---+---+---+---+---+---+---+\n";
+        cout << "|";
+        for (int i = 0; i < 64; i++) {
+            cout << " " + string(1, piece::toChar(square[i])) << " |";
+            if ((i + 1) % 8 == 0) {
+                cout << " " << (9 - (i + 1) / 8) << "\n";
+                cout << "+---+---+---+---+---+---+---+---+\n";
+                if (i == 63) break;
+                cout << "|";
+            }
+        }
+        cout << "  a   b   c   d   e   f   g   h  \n";
+    }
+    void printInfo() {
+        cout << "Castle Rights:\n";
+        cout << "  White King-Side: " << castleRights[0] << "\n";
+        cout << "  White Queen-Side: " << castleRights[1] << "\n";
+        cout << "  Black King-Side: " << castleRights[2] << "\n";
+        cout << "  Black Queen-Side: " << castleRights[3] << "\n";
+        cout << (whiteToMove ? "White to move" : "Black to move") << "\n";
+        cout << "Last move: " << ((lastMove.startSquare == 0 && lastMove.endSquare == 0) ? "-" : lastMove.toString()) << "\n";
+        cout << "Half moves: " << halfMoves << "  Full moves: " << fullMoves << "\n";
+        cout << "White pieces indices: \n";
+        for (int i = 0; i < 16; i++) {
+            string add = whitePieces[i] < 10 ? " " : "";
+            cout << "  " << whitePieces[i] << add;
+        }
+        cout << "\n";
+        cout << "Black pieces indices: \n";
+        for (int i = 0; i < 16; i++) {
+            string add = blackPieces[i] < 10 ? " " : "";
+            cout << "  " << blackPieces[i] << add;
+        }
+        cout << "\n\n";
+        print();
+    }
 }
 
 }
