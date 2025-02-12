@@ -92,16 +92,15 @@ Move::Move(string start, string end) {
 }
 string Move::toString() {
     string move = "";
-    string alph = "abcdefgh";
     int rank, file;
     file = startSquare % 8;
     rank = 8 - (startSquare - file) / 8;
-    move += "" + alph[file];
-    move += "" + rank;
+    move += string(1, alphabet[file]);
+    move += to_string(rank);
     file = endSquare % 8;
     rank = 8 - (endSquare - file) / 8;
-    move += "" + alph[file];
-    move += "" + rank;
+    move += string(1, alphabet[file]);
+    move += to_string(rank);
     return move;
 }
 Move Move::fromEnPassantTargetSquare(string targetSquare) {
