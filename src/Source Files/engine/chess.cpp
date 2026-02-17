@@ -1,5 +1,7 @@
 #include <engine/chess.hpp>
 
+#include <util/arr_ops.h>
+
 namespace chess {
 
 const char* ALPHABET = "abcdefgh";
@@ -88,6 +90,7 @@ namespace piece {
         }
     }
 }
+
 namespace move {
     Move fromEnPassantTargetSquare(std::string targetSquare) {
         std::string file = std::string(1, targetSquare[0]);
@@ -100,6 +103,7 @@ namespace move {
         return move;
     }
 }
+
 namespace board {
     Piece square[64] = {};
     bool castleRights[4] = {};
@@ -180,9 +184,11 @@ namespace board {
         std::string fm = fen.substr(last);
         fullMoves = stoi(fm);
     }
+
     void reset() {
         reset("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     }
+
     Piece** to2DArray() {
         Piece** square = (Piece**)malloc(sizeof(Piece*) * 8);
         for (int i = 0; i < 8; i++) square[i] = (Piece*)malloc(sizeof(Piece) * 8);
@@ -194,6 +200,25 @@ namespace board {
         }
         return square;
     }
+
+    void makeMove(Move move) {
+        if (piece::getPieceColor(square[move.startSquare]) == BLACK) {
+            fullMoves++;
+            whiteToMove = true;
+        } else {
+            whiteToMove = false;
+        }
+        if (square[move.endSquare] != NONE) {
+            if (piece::getPieceColor(square[move.endSquare]) == WHITE) {
+                whitePieces[find(move.endSquare, whitePieces, 0, 15)] = -1;
+            } else {
+                blackPieces[find(move.endSquare, blackPieces, 0, 15)] = -1;
+            }
+        }
+        square[move.endSquare] = square[move.startSquare];
+        square[move.startSquare] = NONE;
+    }
+
     void print() {
         std::cout << "+---+---+---+---+---+---+---+---+\n";
         std::cout << "|";
@@ -208,6 +233,7 @@ namespace board {
         }
         std::cout << "  a   b   c   d   e   f   g   h  \n";
     }
+
     void printInfo() {
         std::cout << "Castle Rights:\n";
         std::cout << "  White King-Side: " << castleRights[0] << "\n";

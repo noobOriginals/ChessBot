@@ -46,6 +46,7 @@ namespace board {
     void reset();
     Piece** to2DArray();
     Moves generateLegalMoves();
+    void makeMove(Move move);
     void print();
     void printInfo();
 }
