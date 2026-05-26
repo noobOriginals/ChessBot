@@ -1,3 +1,5 @@
+#if 0
+
 #include <engine/chess.hpp>
 
 #include <util/arr_ops.h>
@@ -260,3 +262,5 @@ namespace board {
 }
 
 }
+
+#endif
