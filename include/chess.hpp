@@ -1,6 +1,7 @@
 #ifndef CHESS_HPP
 #define CHESS_HPP
 
+#include <ostream>
 #include <string>
 
 #define NONE   0b00000
@@ -42,10 +43,10 @@ public:
     Move(int start, int end);
     Move(const std::string& move);
 
-    int getStart();
-    int getEnd();
-    bool isValid();
-    std::string toString();
+    int getStart() const;
+    int getEnd() const;
+    bool isValid() const;
+    std::string toString() const;
 
 private:
     int start = -1, end = -1;
@@ -60,6 +61,8 @@ public:
     void reset();
     void reset(const std::string& fen);
 
+    void move(const Move& move);
+
     Piece& at(int file, int rank);
     const Piece& at(int file, int rank) const;
     Piece& operator[](int idx);
@@ -70,6 +73,8 @@ private:
     bool valid = false;
     Piece nextMove = NONE;
 };
+
+std::ostream& operator<<(std::ostream& out, const Board& b);
 
 } // namespace chess
 

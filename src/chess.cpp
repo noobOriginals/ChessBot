@@ -67,12 +67,12 @@ Piece charToPiece(char c) {
     }
     c = std::tolower(c);
     switch (c) {
-        case 'P': return p | PAWN;
-        case 'N': return p | KNIGHT;
-        case 'B': return p | BISHOP;
-        case 'R': return p | ROOK;
-        case 'Q': return p | QUEEN;
-        case 'K': return p | KING;
+        case 'p': return p | PAWN;
+        case 'n': return p | KNIGHT;
+        case 'b': return p | BISHOP;
+        case 'r': return p | ROOK;
+        case 'q': return p | QUEEN;
+        case 'k': return p | KING;
         default: return NONE;
     }
 }
@@ -90,19 +90,19 @@ Move::Move(const std::string& move) {
     valid = true;
 }
 
-int Move::getStart() {
+int Move::getStart() const {
     return start;
 }
 
-int Move::getEnd() {
+int Move::getEnd() const {
     return end;
 }
 
-bool Move::isValid() {
+bool Move::isValid() const {
     return valid;
 }
 
-std::string Move::toString() {
+std::string Move::toString() const {
     return sqIdxToString(start) + sqIdxToString(end);
 }
 
@@ -122,12 +122,17 @@ void Board::reset() {
 
 void Board::reset(const std::string& fen) {
     int file = 0;
-    int rank = 0;
+    int rank = 7;
     ulong i = 0;
-    while (!valid && i < fen.size()) {
+    while (i < fen.size()) {
+        if (rank <= 0 && file >= 8) {
+            valid = true;
+            break;
+        }
+
         // Board is not loaded yet
         if (fen[i] == '/') {
-            rank++;
+            rank--;
             file = 0;
             i++; continue;
         }
@@ -137,11 +142,13 @@ void Board::reset(const std::string& fen) {
         }
         at(file, rank) = charToPiece(fen[i]);
         file++;
-        if (rank * 8 + file >= 64) {
-            valid = true;
-        }
         i++;
     }
+}
+
+void Board::move(const Move& move) {
+    board[move.getEnd()] = board[move.getStart()];
+    board[move.getStart()] = NONE;
 }
 
 Piece& Board::at(int file, int rank) {
@@ -176,5 +183,19 @@ const Piece& Board::operator[](int idx) const {
     return board[idx];
 }
 
+std::ostream& operator<<(std::ostream& out, const Board& b) {
+    out << "     a   b   c   d   e   f   g   h     \n";
+    out << "   +---+---+---+---+---+---+---+---+   \n";
+    for (int rank = 7; rank >= 0; rank--) {
+        out << " " << rank + 1 << " ";
+        for (int file = 0; file < 8; file++) {
+            out << "| " << pieceToChar(b.at(file, rank)) << " ";
+        }
+        out << "| " << rank + 1 << " \n";
+        out << "   +---+---+---+---+---+---+---+---+   \n";
+    }
+    out << "     a   b   c   d   e   f   g   h     ";
+    return out;
+}
 
 } // namespace chess
