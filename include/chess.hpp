@@ -3,6 +3,7 @@
 
 #include <ostream>
 #include <string>
+#include <vector>
 
 #define NONE   0b00000
 #define BAD    0b11111
@@ -63,15 +64,22 @@ public:
 
     void move(const Move& move);
 
+    std::vector<Move> genLegalMoves() const;
+
     Piece& at(int file, int rank);
     const Piece& at(int file, int rank) const;
+
     Piece& operator[](int idx);
     const Piece& operator[](int idx) const;
+
+    Piece getNextMove() const;
+    uchar getCastleRights() const;
 
 private:
     Piece board[64] = {};
     bool valid = false;
     Piece nextMove = NONE;
+    uchar castleRights = 0b1111;
 };
 
 std::ostream& operator<<(std::ostream& out, const Board& b);

@@ -144,11 +144,25 @@ void Board::reset(const std::string& fen) {
         file++;
         i++;
     }
+    nextMove = (fen[++i] == 'w') ? WHITE : BLACK;
+    i++;
+    castleRights = 0b0000;
+    while (fen[++i] != ' ') {
+        switch (fen[i]) {
+            case 'K': castleRights |= 0b0001; break;
+            case 'Q': castleRights |= 0b0010; break;
+            case 'k': castleRights |= 0b0100; break;
+            case 'q': castleRights |= 0b1000; break;
+        }
+    }
 }
 
 void Board::move(const Move& move) {
-    board[move.getEnd()] = board[move.getStart()];
-    board[move.getStart()] = NONE;
+
+}
+
+std::vector<Move> Board::genLegalMoves() const {
+
 }
 
 Piece& Board::at(int file, int rank) {
@@ -183,7 +197,16 @@ const Piece& Board::operator[](int idx) const {
     return board[idx];
 }
 
+Piece Board::getNextMove() const {
+    return nextMove;
+}
+
+uchar Board::getCastleRights() const {
+    return castleRights;
+}
+
 std::ostream& operator<<(std::ostream& out, const Board& b) {
+    out << "Chess Board:\n\n";
     out << "     a   b   c   d   e   f   g   h     \n";
     out << "   +---+---+---+---+---+---+---+---+   \n";
     for (int rank = 7; rank >= 0; rank--) {
@@ -194,7 +217,10 @@ std::ostream& operator<<(std::ostream& out, const Board& b) {
         out << "| " << rank + 1 << " \n";
         out << "   +---+---+---+---+---+---+---+---+   \n";
     }
-    out << "     a   b   c   d   e   f   g   h     ";
+    out << "     a   b   c   d   e   f   g   h     \n\n";
+    out << "Next move: " << ((b.getNextMove() == WHITE) ? "White" : "Black") << "\n";
+    uchar castle = b.getCastleRights();
+    out << "Castle rights: " << (castle & 0b0001 ? "K" : "") << (castle & 0b0010 ? "Q" : "") << (castle & 0b0100 ? "k" : "") << (castle & 0b1000 ? "q" : "") << "\n\n";
     return out;
 }
 
