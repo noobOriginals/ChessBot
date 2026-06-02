@@ -76,6 +76,8 @@ public:
     uchar getCastleRights() const;
 
 private:
+    void checkPawnMoves(int idx, std::vector<Move>& moves);
+
     Piece board[64] = {};
     bool valid = false;
     Piece nextMove = NONE;

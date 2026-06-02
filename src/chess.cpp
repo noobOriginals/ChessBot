@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace chess {
 
@@ -162,7 +163,15 @@ void Board::move(const Move& move) {
 }
 
 std::vector<Move> Board::genLegalMoves() const {
-
+    std::vector<Move> moves;
+    for (int idx = 0; idx < 64; idx++) {
+        if (board[idx] & nextMove) {
+            switch (board[idx] & TYPE) {
+                case PAWN:
+            }
+        }
+    }
+    return moves;
 }
 
 Piece& Board::at(int file, int rank) {
@@ -204,6 +213,21 @@ Piece Board::getNextMove() const {
 uchar Board::getCastleRights() const {
     return castleRights;
 }
+
+// Private Board
+
+void Board::checkPawnMoves(int idx, std::vector<Move>& moves) {
+    int rankOffset = (nextMove & WHITE) ? 8 : -8;
+    if (!board[idx + rankOffset]) {
+        moves.push_back(Move(idx, idx + rankOffset));
+    }
+    int startRank = (nextMove & WHITE) ? 1 : 6;
+    if (idx / 8 == startRank && !board[idx + 2 * rankOffset]) {
+        moves.push_back(Move(idx, idx + 2 * rankOffset));
+    }
+}
+
+// Print utility
 
 std::ostream& operator<<(std::ostream& out, const Board& b) {
     out << "Chess Board:\n\n";
