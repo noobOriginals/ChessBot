@@ -145,7 +145,7 @@ void Board::reset(const std::string& fen) {
         file++;
         i++;
     }
-    nextMove = (fen[++i] == 'w') ? WHITE : BLACK;
+    nextSide = (fen[++i] == 'w') ? WHITE : BLACK;
     i++;
     castleRights = 0b0000;
     while (fen[++i] != ' ') {
@@ -159,15 +159,42 @@ void Board::reset(const std::string& fen) {
 }
 
 void Board::move(const Move& move) {
-
+    enPassantSquare = -1;
+    if (board[move.getStart()] & PAWN) {
+        int rankOffset = (nextSide & WHITE) ? 8 : -8;
+        int startRank = (nextSide & WHITE) ? 1 : 6;
+        std::cout << rankOffset << " " << startRank << "\n";
+        if (move.getStart() / 8 == startRank && (move.getEnd() - move.getStart() == 2 * rankOffset)) {
+            enPassantSquare = move.getStart() + rankOffset;
+            std::cout << sqIdxToString(enPassantSquare) << "\n";
+        }
+    }
+    if (board[move.getStart()] & KING) {
+        if ((move.getEnd() - move.getStart() == 2) && (castleRights & ((nextSide & WHITE) ? 0b0001 : 0b0100)) && (!board[move.getStart() + 1]) && (!board[move.getStart() + 2])) {
+            board[move.getStart() + 1] = board[move.getEnd() + 1];
+            board[move.getEnd() + 1] = NONE;
+        } else if ((move.getStart() - move.getEnd() == 2) && (castleRights & ((nextSide & WHITE) ? 0b0010 : 0b1000)) && (!board[move.getStart() - 1]) && (!board[move.getStart() - 2]) && (!board[move.getStart() - 3])) {
+            board[move.getStart() - 1] = board[move.getEnd() - 1];
+            board[move.getEnd() - 1] = NONE;
+        } else {
+            castleRights &= (nextSide & WHITE) ? 0b1100 : 0b0011;
+        }
+    }
+    if (board[move.getStart()] & ROOK) {
+        castleRights &= (nextSide & WHITE) ? 0b1100 : 0b0011;
+    }
+    board[move.getEnd()] = board[move.getStart()];
+    board[move.getStart()] = NONE;
+    nextSide = (nextSide & WHITE) ? BLACK : WHITE;
 }
 
 std::vector<Move> Board::genLegalMoves() const {
     std::vector<Move> moves;
     for (int idx = 0; idx < 64; idx++) {
-        if (board[idx] & nextMove) {
+        if (board[idx] & nextSide) {
             switch (board[idx] & TYPE) {
-                case PAWN:
+                case PAWN: checkPawnMoves(idx, moves); break;
+                default: break;
             }
         }
     }
@@ -206,8 +233,8 @@ const Piece& Board::operator[](int idx) const {
     return board[idx];
 }
 
-Piece Board::getNextMove() const {
-    return nextMove;
+Piece Board::getNextSide() const {
+    return nextSide;
 }
 
 uchar Board::getCastleRights() const {
@@ -216,14 +243,23 @@ uchar Board::getCastleRights() const {
 
 // Private Board
 
-void Board::checkPawnMoves(int idx, std::vector<Move>& moves) {
-    int rankOffset = (nextMove & WHITE) ? 8 : -8;
+void Board::checkPawnMoves(int idx, std::vector<Move>& moves) const {
+    Piece lastMove = (nextSide & WHITE) ? BLACK : WHITE;
+    int rankOffset = (nextSide & WHITE) ? 8 : -8;
     if (!board[idx + rankOffset]) {
         moves.push_back(Move(idx, idx + rankOffset));
     }
-    int startRank = (nextMove & WHITE) ? 1 : 6;
+    int startRank = (nextSide & WHITE) ? 1 : 6;
     if (idx / 8 == startRank && !board[idx + 2 * rankOffset]) {
         moves.push_back(Move(idx, idx + 2 * rankOffset));
+    }
+    int right = (nextSide & WHITE) ? 1 : -1;
+    int left = (nextSide & WHITE) ? -1 : 1;
+    if (idx % 8 < 7 && (lastMove & board[idx + rankOffset + right] || (idx + rankOffset + right == enPassantSquare))) {
+        moves.push_back(Move(idx, idx + rankOffset + right));
+    }
+    if (idx % 8 > 0 && (lastMove & board[idx + rankOffset + left] || (idx + rankOffset + left == enPassantSquare))) {
+        moves.push_back(Move(idx, idx + rankOffset + left));
     }
 }
 
@@ -242,7 +278,7 @@ std::ostream& operator<<(std::ostream& out, const Board& b) {
         out << "   +---+---+---+---+---+---+---+---+   \n";
     }
     out << "     a   b   c   d   e   f   g   h     \n\n";
-    out << "Next move: " << ((b.getNextMove() == WHITE) ? "White" : "Black") << "\n";
+    out << "Next move: " << ((b.getNextSide() == WHITE) ? "White" : "Black") << "\n";
     uchar castle = b.getCastleRights();
     out << "Castle rights: " << (castle & 0b0001 ? "K" : "") << (castle & 0b0010 ? "Q" : "") << (castle & 0b0100 ? "k" : "") << (castle & 0b1000 ? "q" : "") << "\n\n";
     return out;

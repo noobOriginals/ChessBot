@@ -72,16 +72,17 @@ public:
     Piece& operator[](int idx);
     const Piece& operator[](int idx) const;
 
-    Piece getNextMove() const;
+    Piece getNextSide() const;
     uchar getCastleRights() const;
 
 private:
-    void checkPawnMoves(int idx, std::vector<Move>& moves);
+    void checkPawnMoves(int idx, std::vector<Move>& moves) const;
 
     Piece board[64] = {};
     bool valid = false;
-    Piece nextMove = NONE;
+    Piece nextSide = NONE;
     uchar castleRights = 0b1111;
+    int enPassantSquare = -1;
 };
 
 std::ostream& operator<<(std::ostream& out, const Board& b);
