@@ -58,10 +58,10 @@ void setFen(Board* board, const char* fen);
 void setFenAndMoves(Board* board, const char* fen, const char** moves, uint32_t moveCount);
 
 // Returns the FEN string representation of the board
-const char* getFen(Board* board);
+int32_t getFen(Board* board, char* fen, uint64_t size);
 
 // Returns the visual string representation of the board, ready to be printed to the console, or file or anything else
-int getVisualString(Board* board, char* str, uint64_t size);
+int32_t getVisualString(Board* board, char* str, uint64_t size);
 
 #ifdef __cplusplus
 } // extern "C"
