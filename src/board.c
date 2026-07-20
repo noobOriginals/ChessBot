@@ -25,7 +25,7 @@ void destroyBoard(Board* board) {
 void computeBitboards(Board* board) {
     board->whitePieces = 0;
     board->blackPieces = 0;
-    for (uint bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) {
+    for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) {
         if (bb < BLACK_OFFSET) {
             board->whitePieces |= board->pieces[bb];
         } else {
@@ -37,29 +37,41 @@ void computeBitboards(Board* board) {
 
 // Sets the board to the specified FEN
 void setFen(Board* board, const char* fen) {
+    // Zero the entire board, ready for new FEN configuration
     memset(board, 0, sizeof(Board));
-    uint len = strlen(fen);
-    uint i = 0;
-    uint rank = 7, file = 0;
-    while (i < len && fen[i] != ' ') {
+    board->epTarget = NO_EP_TARGET;
+
+    // Initiate function-scope values
+    uint32_t fenSize = strlen(fen);
+    uint32_t rank = 7, file = 0;
+    uint32_t i = 0;
+
+    while (i < fenSize && fen[i] != ' ') {
+        // Next rank
         if (fen[i] == '/') {
             rank -= 1;
             file = 0;
             i += 1;
             continue;
         }
-        if (fen[i] < 58) {
-            file += fen[i] - 48;
+
+        // Skip over empty squares
+        if (fen[i] < 'A') {
+            file += fen[i] - '0';
             i += 1;
             continue;
         }
-        uint square = rank * 8 + file;
-        uint offset = 0;
+
+        // Calculate necessary values
+        uint32_t square = rank * 8 + file;
+        uint32_t offset = 0;
+
         char piece = fen[i];
-        if (fen[i] > 90) {
-            offset = BLACK_OFFSET;
-            piece -= 32; // To upper case
+        if (fen[i] > 'Z') { // Char is lower case
+            offset = BLACK_OFFSET; // Change to black bitboards
+            piece = fen[i] - 'a' + 'A'; // To upper case
         }
+
         switch (piece) {
             case 'P': board->pieces[PAWN + offset] |= (1ull << square); break;
             case 'N': board->pieces[KNIGHT + offset] |= (1ull << square); break;
@@ -69,50 +81,57 @@ void setFen(Board* board, const char* fen) {
             case 'K': board->pieces[KING + offset] |= (1ull << square); break;
             default: break;
         }
+
+        // Next file
         file += 1;
         i += 1;
     }
-    i += 1; if (i >= len) return;
+    i += 1; if (i >= fenSize) return; // Increment and check for out of bounds pattern (avoids reading uninitialized memory)
+
     board->sideToMove = (fen[i] == 'w') ? WHITE : BLACK;
-    i += 2; if (i >= len) return;
+    i += 2; if (i >= fenSize) return;
+
     if (fen[i] != '-') {
-        while (i < len && fen[i] != ' ') {
+        while (i < fenSize && fen[i] != ' ') {
             switch (fen[i]) {
-                case 'K': board->castle |= 0b1000; break;
-                case 'Q': board->castle |= 0b0100; break;
-                case 'k': board->castle |= 0b0010; break;
-                case 'q': board->castle |= 0b0001; break;
+                case 'K': board->castle |= WHITE_KC; break;
+                case 'Q': board->castle |= WHITE_QC; break;
+                case 'k': board->castle |= BLACK_KC; break;
+                case 'q': board->castle |= BLACK_QC; break;
                 default: break;
             }
             i += 1;
         }
         i += 1;
     } else {
-        i += 2;
+        i += 2; // Skip over two chars (the '-' and the following whitespace)
     }
-    if (i >= len) return;
+    if (i >= fenSize) return;
+
     if (fen[i] != '-') {
         file = fen[i] - 'a';
-        i += 1; if (i >= len) return;
+        i += 1; if (i >= fenSize) return;
         rank = fen[i] - '1';
         board->epTarget = rank * 8 + file;
-    } else {
-        board->epTarget = NO_EP_TARGET;
     }
-    i += 2; if (i >= len) return;
+    i += 2; if (i >= fenSize) return;
+
+    // Construct the half moves number into a char buffer then pass it to atoi() to convert to an integer
     char buffer[64];
-    uint bufferIdx = 0;
-    while (i < len && bufferIdx < 63 && fen[i] != ' ') {
+    uint32_t bufferIdx = 0;
+    while (i < fenSize && bufferIdx < 63 && fen[i] != ' ') {
         buffer[bufferIdx] = fen[i];
         bufferIdx += 1;
         i += 1;
     }
-    buffer[63] = '\0';
+    buffer[63] = '\0'; // Make sure last char is null
     board->halfMoves = atoi(buffer);
-    i += 1; if (i >= len) return;
-    for (uint j = 0; j < 64; j += 1) buffer[j] = 0;
+    i += 1; if (i >= fenSize) return;
+
+    // Same pattern as before, for full moves
+    for (uint32_t j = 0; j < 64; j += 1) buffer[j] = 0;
     bufferIdx = 0;
-    while (i < len && bufferIdx < 63) {
+    while (i < fenSize && bufferIdx < 63) {
         buffer[bufferIdx] = fen[i];
         bufferIdx += 1;
         i += 1;
@@ -122,17 +141,20 @@ void setFen(Board* board, const char* fen) {
 }
 
 // Sets the board to the specified FEN and then executes the given move array
-void setFenAndMoves(Board* board, const char* fen, const char** moves, uint moveCount) {
+void setFenAndMoves(Board* board, const char* fen, const char** moves, uint32_t moveCount) {
     setFen(board, fen);
+    // TODO: implement move making and the rest of the function
 }
 
 // Returns the FEN string representation of the board
 const char* getFen(Board* board) {
+    // TODO: reverse FEN parsing into FEN building
     return "";
 }
 
 // Returns the visual string representation of the board, ready to be printed to the console, or file or anything else
-void getVisualString(Board* board, char* str, ullong len) {
+int getVisualString(Board* board, char* str, uint64_t size) {
+    // Visual template that gets copied to the given buffer
     const char* template =
     "     a   b   c   d   e   f   g   h     \n"
     "   +---+---+---+---+---+---+---+---+   \n"
@@ -153,20 +175,21 @@ void getVisualString(Board* board, char* str, ullong len) {
     " 1 |   |   |   |   |   |   |   |   | 1 \n"
     "   +---+---+---+---+---+---+---+---+   \n"
     "     a   b   c   d   e   f   g   h     \n";
-    if (len < strlen(template)) return;
+    if (size < strlen(template)) return -1;
     memcpy(str, template, strlen(template));
-    computeBitboards(board);
-    uint vidx = 85;
-    for (uint rank = 8; rank > 0; rank--) {
-        for (uint file = 0; file < 8; file += 1) {
-            uint square = (rank - 1) * 8 + file;
+
+    computeBitboards(board); // Compute all necessary bitboards
+    uint32_t vidx = 85; // First index of a square in the visual template
+    for (uint32_t rank = 8; rank > 0; rank--) {
+        for (uint32_t file = 0; file < 8; file += 1) {
+            uint32_t square = (rank - 1) * 8 + file;
             char piece = ' ';
-            if (board->allPieces & (1ull << square)) {
-                for (uint bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) {
+            if (board->allPieces & (1ull << square)) { // Only if a piece is present
+                for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) { // Check until finding the right piece type
                     if (board->pieces[bb] & (1ull << square)) {
                         if (bb >= BLACK_OFFSET) {
-                            bb -= BLACK_OFFSET;
-                            piece = 32; // To lower case
+                            bb -= BLACK_OFFSET; // Switch to constant indicees
+                            piece = 'a' - 'A'; // To lower case
                         } else {
                             piece = 0;
                         }
@@ -188,4 +211,5 @@ void getVisualString(Board* board, char* str, ullong len) {
         }
         vidx += 48; // Rank offset from last file to first file in template visual
     }
+    return 0;
 }

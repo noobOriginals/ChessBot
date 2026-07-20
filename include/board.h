@@ -1,17 +1,13 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef signed char schar;
-typedef unsigned char uchar;
-typedef unsigned short ushort;
-typedef unsigned int uint;
-typedef unsigned long ulong;
-typedef unsigned long long ullong;
-
+// Bitboard array constants
 #define TOTAL_PIECE_TYPES 12
 #define BLACK_OFFSET 6
 #define PAWN 0
@@ -21,17 +17,26 @@ typedef unsigned long long ullong;
 #define QUEEN 4
 #define KING 5
 
+// Side to move contants
 #define WHITE 0
 #define BLACK 1
 
+// Castle rights contants
+#define WHITE_KC 0b1000
+#define WHITE_QC 0b0100
+#define BLACK_KC 0b0010
+#define BLACK_QC 0b0001
+
+// En passant target "null"
 #define NO_EP_TARGET 64
 
+// Utility
 #define STARTPOS_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 typedef struct {
-    ullong pieces[TOTAL_PIECE_TYPES], whitePieces, blackPieces, allPieces;
-    uchar castle, sideToMove;
-    uint epTarget, halfMoves, fullMoves;
+    uint64_t pieces[TOTAL_PIECE_TYPES], whitePieces, blackPieces, allPieces; // Bitboards (12 for each piece, plus the computed ones for white, black and all pieces)
+    uint8_t castle, sideToMove; // Store int 8 bits, no more needed
+    uint32_t epTarget, halfMoves, fullMoves; // Additional board info for en passant and 50-move rule
 } Board;
 
 // Create the Board struct's object (allocate memory)
@@ -50,14 +55,13 @@ void computeBitboards(Board* board);
 void setFen(Board* board, const char* fen);
 
 // Sets the board to the specified FEN and then executes the given move array
-void setFenAndMoves(Board* board, const char* fen, const char** moves, uint moveCount);
+void setFenAndMoves(Board* board, const char* fen, const char** moves, uint32_t moveCount);
 
 // Returns the FEN string representation of the board
 const char* getFen(Board* board);
 
 // Returns the visual string representation of the board, ready to be printed to the console, or file or anything else
-void getVisualString(Board* board, char* str, ullong len);
-
+int getVisualString(Board* board, char* str, uint64_t size);
 
 #ifdef __cplusplus
 } // extern "C"
