@@ -4,6 +4,74 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Utility
+static const char* boardVisualTemplate =
+"     a   b   c   d   e   f   g   h     \n"
+"   +---+---+---+---+---+---+---+---+   \n"
+" 8 | x | y |   |   |   |   |   | z | 8 \n"
+"   +---+---+---+---+---+---+---+---+   \n"
+" 7 | w |   |   |   |   |   |   |   | 7 \n"
+"   +---+---+---+---+---+---+---+---+   \n"
+" 6 |   |   |   |   |   |   |   |   | 6 \n"
+"   +---+---+---+---+---+---+---+---+   \n"
+" 5 |   |   |   |   |   |   |   |   | 5 \n"
+"   +---+---+---+---+---+---+---+---+   \n"
+" 4 |   |   |   |   |   |   |   |   | 4 \n"
+"   +---+---+---+---+---+---+---+---+   \n"
+" 3 |   |   |   |   |   |   |   |   | 3 \n"
+"   +---+---+---+---+---+---+---+---+   \n"
+" 2 |   |   |   |   |   |   |   |   | 2 \n"
+"   +---+---+---+---+---+---+---+---+   \n"
+" 1 |   |   |   |   |   |   |   |   | 1 \n"
+"   +---+---+---+---+---+---+---+---+   \n"
+"     a   b   c   d   e   f   g   h     \n"; // Visual template that gets copied to the given buffer
+
+// Precomputed attack bitboads
+static uint64_t knightAttacks[64];
+static uint64_t kingAttacks[64];
+
+// Initialize attack tables
+void initAttackTables() {
+    {
+        // Knight attack tables
+        int32_t rankOffsets[8] = { 2,  2,  1,  1, -2, -2, -1, -1};
+        int32_t fileOffsets[8] = { 1, -1,  2, -2,  1, -1,  2, -2};
+
+        for (uint32_t rank = 0; rank < 8; rank += 1) {
+            for (uint32_t file = 0; file < 8; file += 1) {
+                uint32_t square = rank * 8 + file;
+                for (uint32_t i = 0; i < 8; i++) {
+                    int32_t offsetedRank = (int32_t) rank + rankOffsets[i];
+                    int32_t offsetedFile = (int32_t) file + fileOffsets[i];
+                    if (offsetedRank > 7 || offsetedRank < 0 || offsetedFile > 7 || offsetedFile < 0) continue;
+                    knightAttacks[square] |= (1ull << (offsetedRank * 8 + offsetedFile));
+                }
+            }
+        }
+    }
+    {
+        // King attack tables
+        int32_t rankOffsets[8] = { 1,  1,  1,  0,  0, -1, -1, -1};
+        int32_t fileOffsets[8] = { 0,  1, -1,  1, -1,  0,  1, -1};
+
+        for (uint32_t rank = 0; rank < 8; rank += 1) {
+            for (uint32_t file = 0; file < 8; file += 1) {
+                uint32_t square = rank * 8 + file;
+                for (uint32_t i = 0; i < 8; i++) {
+                    int32_t offsetedRank = (int32_t) rank + rankOffsets[i];
+                    int32_t offsetedFile = (int32_t) file + fileOffsets[i];
+                    if (offsetedRank > 7 || offsetedRank < 0 || offsetedFile > 7 || offsetedFile < 0) continue;
+                    kingAttacks[square] |= (1ull << (offsetedRank * 8 + offsetedFile));
+                }
+            }
+        }
+    }
+}
+
+uint64_t getKnightAttackTable(uint32_t idx) {
+    return knightAttacks[idx];
+}
+
 // Create the Board struct (allocate memory)
 Board* createBoard() {
     return (Board*) calloc(1, sizeof(Board));
@@ -154,7 +222,7 @@ int32_t getFen(Board* board, char* fen, uint64_t fenSize) {
         uint32_t empty = 0;
         for (uint32_t file = 0; file < 8; file += 1) {
             uint32_t square = (rank - 1) * 8 + file;
-            char piece;
+            char piece = ' ';
             if (board->allPieces & (1ull << square)) { // Only if a piece is present
                 for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) { // Check until finding the right piece type
                     if (board->pieces[bb] & (1ull << square)) {
@@ -287,31 +355,33 @@ int32_t getFen(Board* board, char* fen, uint64_t fenSize) {
     return 0;
 }
 
+// Returns the visual string representation of the given bitboard, ready to be printed to the console, or file or anything else
+int32_t getVisualBitboardString(uint64_t bitboard, char* str, uint64_t size) {
+    // Copy the visual template
+    if (size < strlen(boardVisualTemplate)) return 1;
+    memcpy(str, boardVisualTemplate, strlen(boardVisualTemplate));
+
+    uint32_t vidx = 85; // First index of a square in the visual template
+    for (uint32_t rank = 8; rank > 0; rank--) {
+        for (uint32_t file = 0; file < 8; file += 1) {
+            uint32_t square = (rank - 1) * 8 + file;
+            char piece = ' ';
+            if (bitboard & (1ull << square)) {
+                piece = '1';
+            }
+            str[vidx] = piece;
+            vidx += 4; // File offset in template visual
+        }
+        vidx += 48; // Rank offset from last file to first file in template visual
+    }
+    return 0;
+}
+
 // Returns the visual string representation of the board, ready to be printed to the console, or file or anything else
-int32_t getVisualString(Board* board, char* str, uint64_t size) {
-    // Visual template that gets copied to the given buffer
-    const char* template =
-    "     a   b   c   d   e   f   g   h     \n"
-    "   +---+---+---+---+---+---+---+---+   \n"
-    " 8 | x | y |   |   |   |   |   | z | 8 \n"
-    "   +---+---+---+---+---+---+---+---+   \n"
-    " 7 | w |   |   |   |   |   |   |   | 7 \n"
-    "   +---+---+---+---+---+---+---+---+   \n"
-    " 6 |   |   |   |   |   |   |   |   | 6 \n"
-    "   +---+---+---+---+---+---+---+---+   \n"
-    " 5 |   |   |   |   |   |   |   |   | 5 \n"
-    "   +---+---+---+---+---+---+---+---+   \n"
-    " 4 |   |   |   |   |   |   |   |   | 4 \n"
-    "   +---+---+---+---+---+---+---+---+   \n"
-    " 3 |   |   |   |   |   |   |   |   | 3 \n"
-    "   +---+---+---+---+---+---+---+---+   \n"
-    " 2 |   |   |   |   |   |   |   |   | 2 \n"
-    "   +---+---+---+---+---+---+---+---+   \n"
-    " 1 |   |   |   |   |   |   |   |   | 1 \n"
-    "   +---+---+---+---+---+---+---+---+   \n"
-    "     a   b   c   d   e   f   g   h     \n";
-    if (size < strlen(template)) return 1;
-    memcpy(str, template, strlen(template));
+int32_t getVisualBoardString(Board* board, char* str, uint64_t size) {
+    // Copy the visual template
+    if (size < strlen(boardVisualTemplate)) return 1;
+    memcpy(str, boardVisualTemplate, strlen(boardVisualTemplate));
 
     computeBitboards(board); // Compute all necessary bitboards
     uint32_t vidx = 85; // First index of a square in the visual template

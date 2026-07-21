@@ -17,11 +17,11 @@ extern "C" {
 #define QUEEN 4
 #define KING 5
 
-// Side to move contants
+// Side to move constants
 #define WHITE 0
 #define BLACK 1
 
-// Castle rights contants
+// Castle rights constants
 #define WHITE_KC 0b1000
 #define WHITE_QC 0b0100
 #define BLACK_KC 0b0010
@@ -33,6 +33,13 @@ extern "C" {
 // Utility
 #define STARTPOS_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
+// Initialize  attack tables
+void initAttackTables();
+
+// Utility debug
+uint64_t getKnightAttackTable(uint32_t idx);
+
+// Board struct
 typedef struct {
     uint64_t pieces[TOTAL_PIECE_TYPES], whitePieces, blackPieces, allPieces; // Bitboards (12 for each piece, plus the computed ones for white, black and all pieces)
     uint8_t castle, sideToMove; // Store int 8 bits, no more needed
@@ -60,8 +67,11 @@ void setFenAndMoves(Board* board, const char* fen, const char** moves, uint32_t 
 // Returns the FEN string representation of the board
 int32_t getFen(Board* board, char* fen, uint64_t size);
 
+// Returns the visual string representation of the given bitboard, ready to be printed to the console, or file or anything else
+int32_t getVisualBitboardString(uint64_t bitboard, char* str, uint64_t size);
+
 // Returns the visual string representation of the board, ready to be printed to the console, or file or anything else
-int32_t getVisualString(Board* board, char* str, uint64_t size);
+int32_t getVisualBoardString(Board* board, char* str, uint64_t size);
 
 #ifdef __cplusplus
 } // extern "C"
