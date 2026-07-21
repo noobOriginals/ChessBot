@@ -33,11 +33,13 @@ extern "C" {
 // Utility
 #define STARTPOS_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-// Initialize  attack tables
-void initAttackTables();
+// Precomputed attack bitboards
+extern uint64_t pawnAttacks[2][64];
+extern uint64_t knightAttacks[64];
+extern uint64_t kingAttacks[64];
 
-// Utility debug
-uint64_t getKnightAttackTable(uint32_t idx);
+// Initialize attack tables
+void initAttackTables();
 
 // Board struct
 typedef struct {
