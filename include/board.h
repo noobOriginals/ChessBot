@@ -1,6 +1,7 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+// Std includes
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -32,14 +33,6 @@ extern "C" {
 
 // Utility
 #define STARTPOS_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-
-// Precomputed attack bitboards
-extern uint64_t pawnAttacks[2][64];
-extern uint64_t knightAttacks[64];
-extern uint64_t kingAttacks[64];
-
-// Initialize attack tables
-void initAttackTables();
 
 // Board struct
 typedef struct {

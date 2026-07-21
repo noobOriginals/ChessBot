@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "board.h"
+#include "attacks.h"
 
 void resetBuffer(char* str, uint64_t size) {
     for (uint64_t i = 0; i < size; i++) {
@@ -45,8 +46,6 @@ int main() {
     resetBuffer(buffer, 1024);
     getFen(board, buffer, 1024);
     std::cout << buffer << "\n";
-
-
 
     destroyBoard(board);
     return 0;
