@@ -3,10 +3,38 @@
 // Local includes
 #include "board.h"
 
-// Precomputed attack bitboads
+// Precomputed attack bitboards
 uint64_t pawnAttacks[2][64];
 uint64_t knightAttacks[64];
 uint64_t kingAttacks[64];
+
+// Precomputed relevant occupancy masks
+uint64_t bishopMasks[64];
+uint64_t rookMasks[64];
+
+// Precomputed relevant bits for each square
+uint64_t bishopRelevantBits[64];
+uint64_t rookRelevantBits[64];
+
+// Utility
+static uint64_t getSlidingAttacks(uint32_t square, uint64_t occupancy, const int32_t* rankDirs, const int32_t* fileDirs, const uint32_t numDirs) {
+    uint64_t attacks = 0;
+    for (uint32_t d = 0; d < numDirs; d++) {
+        int32_t rank = square / 8, file = square % 8;
+        for (;;) {
+            rank += rankDirs[d];
+            file += fileDirs[d];
+            if (rank > 7 || rank < 0 || file > 7 || file < 0) break;
+            uint32_t reached = rank * 8 + file;
+            attacks |= (1ull << reached);
+            if (occupancy & (1ull << reached)) break;
+        }
+    }
+    return attacks;
+}
+static void initOccpancyMasks() {
+
+}
 
 // Initialize attack tables
 void initAttackTables() {
@@ -66,5 +94,58 @@ void initAttackTables() {
                 }
             }
         }
+    }
+}
+
+// Access attack tables
+uint64_t getPawnAttacks(uint32_t color, uint32_t square) {
+    if (color > BLACK || square > 63) return 0;
+    return pawnAttacks[color][square];
+}
+
+uint64_t getKnightAttacks(uint32_t square) {
+    if (square > 63) return 0;
+    return knightAttacks[square];
+}
+
+uint64_t getBishopAttacks(uint32_t square, uint64_t occupancy) {
+    if (square > 63) return 0;
+    int32_t rankDirs[4] = { 1, -1,  1, -1};
+    int32_t fileDirs[4] = { 1, -1, -1,  1};
+    return getSlidingAttacks(square, occupancy, rankDirs, fileDirs, 4);
+}
+
+uint64_t getRookAttacks(uint32_t square, uint64_t occupancy) {
+    if (square > 63) return 0;
+    int32_t rankDirs[4] = { 1, -1,  0,  0};
+    int32_t fileDirs[4] = { 0,  0,  1, -1};
+    return getSlidingAttacks(square, occupancy, rankDirs, fileDirs, 4);
+}
+
+uint64_t getQueenAttacks(uint32_t square, uint64_t occupancy) {
+    if (square > 63) return 0;
+    return getBishopAttacks(square, occupancy) | getRookAttacks(square, occupancy);
+}
+
+uint64_t getKingAttacks(uint32_t square) {
+    if (square > 63) return 0;
+    return kingAttacks[square];
+}
+
+uint64_t getPieceAttacks(uint32_t pieceType, uint32_t square, uint64_t occupancy) {
+    if (pieceType >= TOTAL_PIECE_TYPES || square > 63) return 0;
+    uint32_t color = WHITE;
+    if (pieceType >= BLACK_OFFSET) {
+        color = BLACK;
+        pieceType -= BLACK_OFFSET;
+    }
+    switch (pieceType) {
+        case PAWN: return getPawnAttacks(color, square);
+        case KNIGHT: return getKnightAttacks(square);
+        case BISHOP: return getBishopAttacks(square, occupancy);
+        case ROOK: return getRookAttacks(square, occupancy);
+        case QUEEN: return getQueenAttacks(square, occupancy);
+        case KING: return getKingAttacks(square);
+        default: return 0;
     }
 }

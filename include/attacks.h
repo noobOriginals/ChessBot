@@ -16,6 +16,15 @@ extern uint64_t kingAttacks[64];
 // Initialize attack tables
 void initAttackTables();
 
+// Access attack tables
+uint64_t getPawnAttacks(uint32_t color, uint32_t square);
+uint64_t getKnightAttacks(uint32_t square);
+uint64_t getBishopAttacks(uint32_t square, uint64_t occupancy); // Slow version
+uint64_t getRookAttacks(uint32_t square, uint64_t occupancy); // Slow version
+uint64_t getQueenAttacks(uint32_t square, uint64_t occupancy); // Bishop | Rooks -> inherently slow
+uint64_t getKingAttacks(uint32_t square);
+uint64_t getPieceAttacks(uint32_t pieceType, uint32_t square, uint64_t occupancy); // Generalized for
+
 #ifdef __cplusplus
 }
 #endif
