@@ -13,6 +13,14 @@ extern uint64_t pawnAttacks[2][64];
 extern uint64_t knightAttacks[64];
 extern uint64_t kingAttacks[64];
 
+// Precomputed relevant occupancy masks
+extern uint64_t bishopMasks[64];
+extern uint64_t rookMasks[64];
+
+// Precomputed relevant bits for each square
+extern uint32_t bishopRelevantBits[64];
+extern uint32_t rookRelevantBits[64];
+
 // Initialize attack tables
 void initAttackTables();
 

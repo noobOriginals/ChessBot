@@ -30,19 +30,38 @@ int main() {
     board = createBoard();
 
     setFen(board, TEST_FEN_1);
-    testBoardVisual();
+    computeBitboards(board);
     testBoardFen();
+    testBoardVisual();
+
+    testBitboardVisual(bishopMasks[27]);
+    testBitboardVisual(bishopMasks[0]);
+
+    uint32_t maxBits = 0;
+    for (uint32_t i = 0; i < 64; i++) {
+        std::cout << bishopRelevantBits[i] << " ";
+        if (bishopRelevantBits[i] > maxBits) maxBits = bishopRelevantBits[i];
+    }
+    std::cout << "\nMax bits: " << maxBits << "\n";
+
+    testBitboardVisual(rookMasks[27]);
+    testBitboardVisual(rookMasks[0]);
+
+    maxBits = 0;
+    for (uint32_t i = 0; i < 64; i++) {
+        std::cout << rookRelevantBits[i] << " ";
+        if (rookRelevantBits[i] > maxBits) maxBits = rookRelevantBits[i];
+    }
+    std::cout << "\nMax bits: " << maxBits << "\n";
 
     // testBitboardVisual(pawnAttacks[WHITE][27]);
     // testBitboardVisual(pawnAttacks[BLACK][27]);
     // testBitboardVisual(knightAttacks[27]);
     // testBitboardVisual(kingAttacks[27]);
 
-    computeBitboards(board);
-
     // testBitboardVisual(getBishopAttacks(27, board->allPieces));
     // testBitboardVisual(getRookAttacks(27, board->allPieces));
-    testBitboardVisual(getQueenAttacks(27, board->allPieces));
+    // testBitboardVisual(getQueenAttacks(27, board->allPieces));
 
     // setFen(board, STARTPOS_FEN);
     // testBoardVisual();
