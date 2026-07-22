@@ -7,7 +7,7 @@
 #include "board.h"
 #include "attacks.h"
 
-static uint64_t rngState = 8817264543ull; // any fixed nonzero seed
+static uint64_t rngState = 88172645463325252ull; // any fixed nonzero seed
 uint64_t nextInt64() {
     rngState ^= rngState << 13;
     rngState ^= rngState >> 7;
@@ -94,5 +94,59 @@ void magicSearch() {
         }
 
         rookMagics[square] = findMagic(rookAttackTable[square], occupancies, attacks, count, bits);
+    }
+}
+
+uint32_t optimizedTryMagic(uint64_t magic, uint64_t* table, uint32_t* maxTableSize, uint64_t* occupancies, uint64_t* attacks, uint32_t count, uint32_t bits) {
+    *maxTableSize = 0;
+    for (uint32_t i = 0; i < count; i += 1) {
+        uint32_t idx = (uint32_t) ((occupancies[i] * magic) >> (64 - bits));
+        if (idx + 1 > *maxTableSize) *maxTableSize = idx + 1;
+        if (table[idx] == attacks[i]) continue;
+        if (table[idx] != 0) return i;
+        table[idx] = attacks[i];
+    }
+    return 0;
+}
+
+uint64_t optimizedFindMagic(uint64_t* table, uint32_t* maxTableSize, uint64_t* occupancies, uint64_t* attacks, uint32_t count, uint32_t bits) {
+    uint64_t magic = 0;
+    for (;;) {
+        magic = randomMagic();
+        for (uint32_t i = 0; i < count; i += 1) table[i] = 0;
+        if (!optimizedTryMagic(magic, table, maxTableSize, occupancies, attacks, count, bits)) break;
+    }
+    return magic;
+}
+
+void optimizedMagicSearch() {
+    for (uint32_t sq = 0; sq < 64; sq += 1) {
+        uint32_t bits = bishopRelevantBits[sq];
+        uint64_t occupancies[512] = {}, attacks[512] = {};
+        uint32_t count = 0;
+        uint64_t subset = 0;
+        do {
+            occupancies[count] = subset;
+            attacks[count] = getBishopAttacks(sq, subset);
+            count += 1;
+            subset = (subset - bishopMasks[sq]) & bishopMasks[sq];
+        } while (subset != 0);
+
+        if (count != (1ul << bits)) {
+            printf("Assert failed: generated %u attacks but expected %lu\n", count, (1ul << bits));
+            continue;
+        }
+
+        uint64_t table[512] = {};
+        uint32_t minSize = 512, size;
+        uint64_t bestMagic, magic;
+        for (;;) {
+            magic = optimizedFindMagic(table, &size, occupancies, attacks, count, bits);
+            if (size <= minSize) {
+                minSize = size;
+                bestMagic = magic;
+                printf("\rMin table size: %6.2fkb. Current magic: %llu.", (minSize * 8) / 1000.0f, bestMagic);
+            }
+        }
     }
 }

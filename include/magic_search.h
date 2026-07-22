@@ -18,6 +18,7 @@ uint64_t randomMagic();
 uint32_t tryMagic(uint64_t magic, uint64_t* table, uint64_t* occupancies, uint64_t* attacks, uint32_t count, uint32_t bits);
 uint64_t findMagic(uint64_t* table, uint64_t* occupancies, uint64_t* attacks, uint32_t count, uint32_t bits);
 void magicSearch();
+void optimizedMagicSearch();
 
 #ifdef __cplusplus
 }
