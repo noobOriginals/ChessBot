@@ -10,6 +10,8 @@ extern "C" {
 
 uint64_t findBishopMagic(uint32_t square);
 uint64_t findRookMagic(uint32_t square);
+void bishopMagicSearch();
+void rookMagicSearch();
 
 #ifdef __cplusplus
 }

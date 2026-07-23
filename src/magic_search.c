@@ -19,12 +19,12 @@ uint64_t findBishopMagic(uint32_t square) {
     uint64_t mask = bishopMasks[square], occ[512] = {}, att[512] = {}, table[512] = {};
     uint64_t subset = 0;
     occ[0] = subset;
-    att[0] = getBishopAttacks(square, subset);
+    att[0] = getBishopAttacksSlow(square, subset);
     uint32_t size = 1, bits = bishopRelevantBits[square];
     while (subset != mask) {
         subset = (subset - mask) & mask;
         occ[size] = subset;
-        att[size] = getBishopAttacks(square, subset);
+        att[size] = getBishopAttacksSlow(square, subset);
         size += 1;
     }
     if (size != (1ull << bits)) {
@@ -53,12 +53,12 @@ uint64_t findRookMagic(uint32_t square) {
     uint64_t mask = rookMasks[square], occ[4096] = {}, att[4096] = {}, table[4096] = {};
     uint64_t subset = 0;
     occ[0] = subset;
-    att[0] = getRookAttacks(square, subset);
+    att[0] = getRookAttacksSlow(square, subset);
     uint32_t size = 1, bits = rookRelevantBits[square];
     while (subset != mask) {
         subset = (subset - mask) & mask;
         occ[size] = subset;
-        att[size] = getRookAttacks(square, subset);
+        att[size] = getRookAttacksSlow(square, subset);
         size += 1;
     }
     if (size != (1ull << bits)) {
@@ -81,4 +81,24 @@ uint64_t findRookMagic(uint32_t square) {
         }
         if (good) return magic;
     }
+}
+
+void bishopMagicSearch() {
+    printf("Bishop magic search:\n{");
+    uint32_t totalSize = 0;
+    for (uint32_t i = 0; i < 64; i++) {
+        printf("0x%llxull, ", findBishopMagic(i));
+        totalSize += (uint32_t) (1ull << bishopRelevantBits[i]);
+    }
+    printf("};\nTotal size: %u\n\n", totalSize);
+}
+
+void rookMagicSearch() {
+    printf("Rook magic search:\n{");
+    uint32_t totalSize = 0;
+    for (uint32_t i = 0; i < 64; i++) {
+        printf("0x%llxull, ", findRookMagic(i));
+        totalSize += (uint32_t) (1ull << rookRelevantBits[i]);
+    }
+    printf("};\nTotal size: %u\n\n", totalSize);
 }
