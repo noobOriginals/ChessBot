@@ -1,3 +1,5 @@
+.cache
 .vscode
-/bin/
-/build/
+.DS_Store
+bin
+build
