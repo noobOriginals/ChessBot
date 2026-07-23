@@ -27,72 +27,6 @@ void testBitboardVisual(uint64_t bitboard) {
     std::cout << buffer << "\n";
 }
 
-void testBishopMagicSearch(uint32_t square) {
-    uint64_t occupancies[512] = {}, attacks[512] = {};
-    uint32_t count = 0;
-
-    uint64_t subset = (0 - bishopMasks[square]) & bishopMasks[square];
-    while (subset != 0) {
-        occupancies[count] = subset;
-        attacks[count] = getBishopAttacks(square, subset);
-        count += 1;
-        subset = (subset - bishopMasks[square]) & bishopMasks[square];
-    }
-    occupancies[count] = subset;
-    attacks[count] = getBishopAttacks(square, subset);
-    count += 1;
-
-    if (count != (1ul << bishopRelevantBits[square])) {
-        std::cerr << "Assert failed, generated " << count << " attacks but expected " << (1ul << bishopRelevantBits[square]) << "\n";
-        return;
-    }
-    std::cout << "Generated " << count << " attacks.\n";
-
-    uint64_t* table = new uint64_t[count];
-    uint64_t magic = 0;
-    for (;;) {
-        magic = randomMagic();
-        uint32_t correctAttacks = tryMagic(magic, table, occupancies, attacks, count, bishopRelevantBits[square]);
-        if (!correctAttacks) break;
-        printf("\rGood attacks: %5u/%5u", correctAttacks, count);
-        for (uint32_t i = 0; i < count; i++) table[i] = 0;
-    }
-    std::cout << "\nFound good magic! " << magic << "\n";
-}
-
-void testRookMagicSearch(uint32_t square) {
-    uint64_t occupancies[4096] = {}, attacks[4096] = {};
-    uint32_t count = 0;
-
-    uint64_t subset = (0 - rookMasks[square]) & rookMasks[square];
-    while (subset != 0) {
-        occupancies[count] = subset;
-        attacks[count] = getRookAttacks(square, subset);
-        count += 1;
-        subset = (subset - rookMasks[square]) & rookMasks[square];
-    }
-    occupancies[count] = subset;
-    attacks[count] = getRookAttacks(square, subset);
-    count += 1;
-
-    if (count != (1ul << rookRelevantBits[square])) {
-        std::cerr << "Assert failed, generated " << count << " attacks but expected " << (1ul << rookRelevantBits[square]) << "\n";
-        return;
-    }
-    std::cout << "Generated " << count << " attacks.\n";
-
-    uint64_t* table = new uint64_t[count];
-    uint64_t magic = 0;
-    for (;;) {
-        magic = randomMagic();
-        uint32_t correctAttacks = tryMagic(magic, table, occupancies, attacks, count, rookRelevantBits[square]);
-        if (!correctAttacks) break;
-        printf("\rGood attacks: %5u/%5u", correctAttacks, count);
-        for (uint32_t i = 0; i < count; i++) table[i] = 0;
-    }
-    std::cout << "\nFound good magic! " << magic << "\n";
-}
-
 int main() {
     initAttackTables();
     board = createBoard();
@@ -138,7 +72,17 @@ int main() {
     // testBishopMagicSearch(27);
     // testRookMagicSearch(27);
 
-    magicSearch();
+    printf("Bishop magic search:\n{");
+    for (uint32_t i = 0; i < 64; i++) {
+        printf("0x%llxull, ", findBishopMagic(i));
+    }
+    printf("};\n");
+
+    printf("Rook magic search:\n");
+    for (uint32_t i = 0; i < 64; i++) {
+        printf("0x%llxull, ", findBishopMagic(i));
+    }
+    printf("};\n");
 
     destroyBoard(board);
     return 0;
