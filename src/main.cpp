@@ -3,7 +3,6 @@
 
 #include "board.h"
 #include "attacks.h"
-
 #include "magic_search.h"
 
 #define TEST_FEN_1 "r1bqk2r/pppp1ppp/2n2n2/1Bb1p3/4P3/3P1N2/PPP2PPP/RNBQ1RK1 b kq - 0 5"
@@ -37,6 +36,27 @@ int32_t assertPositions(uint64_t actual, uint64_t expected) {
         return 0;
     }
     return 1;
+}
+
+void testMagicBitboards() {
+    for (uint32_t sq = 0; sq < 64; sq++) {
+        printf("Testing bishop attacks, square %u\n", sq);
+        uint64_t mask = bishopMasks[sq];
+        uint64_t subset = 0;
+        do {
+            if (!assertPositions(getBishopAttacks(sq, subset), getBishopAttacksSlow(sq, subset))) return;
+            subset = (subset - mask) & mask;
+        } while (subset != 0);
+    }
+    for (uint32_t sq = 0; sq < 64; sq++) {
+        printf("Testing rook attacks, square %u\n", sq);
+        uint64_t mask = rookMasks[sq];
+        uint64_t subset = 0;
+        do {
+            if (!assertPositions(getRookAttacks(sq, subset), getRookAttacksSlow(sq, subset))) return;
+            subset = (subset - mask) & mask;
+        } while (subset != 0);
+    }
 }
 
 void testMagicBitboardsVsSlowVersion() {
@@ -91,51 +111,11 @@ void testMagicBitboardsVsSlowVersion() {
 
 int main() {
     initAttackTables();
-    board = createBoard();
 
-    setFen(board, TEST_FEN_1);
-    computeBitboards(board);
-    testBoardFen();
-    testBoardVisual();
-
-    testBitboardVisual(bishopMasks[27]);
-    testBitboardVisual(bishopMasks[0]);
-
-    uint32_t maxBits = 0;
-    for (uint32_t i = 0; i < 64; i++) {
-        std::cout << bishopRelevantBits[i] << " ";
-        if (bishopRelevantBits[i] > maxBits) maxBits = bishopRelevantBits[i];
-    }
-    std::cout << "\nMax bits: " << maxBits << "\n";
-
-    testBitboardVisual(rookMasks[27]);
-    testBitboardVisual(rookMasks[0]);
-
-    maxBits = 0;
-    for (uint32_t i = 0; i < 64; i++) {
-        std::cout << rookRelevantBits[i] << " ";
-        if (rookRelevantBits[i] > maxBits) maxBits = rookRelevantBits[i];
-    }
-    std::cout << "\nMax bits: " << maxBits << "\n";
-
-    // testBitboardVisual(pawnAttacks[WHITE][27]);
-    // testBitboardVisual(pawnAttacks[BLACK][27]);
-    // testBitboardVisual(knightAttacks[27]);
-    // testBitboardVisual(kingAttacks[27]);
-
-    // testBitboardVisual(getBishopAttacks(27, board->allPieces));
-    // testBitboardVisual(getRookAttacks(27, board->allPieces));
-    // testBitboardVisual(getQueenAttacks(27, board->allPieces));
-
-    // setFen(board, STARTPOS_FEN);
-    // testBoardVisual();
-    // testBoardFen();
-
-    // testBishopMagicSearch(27);
-    // testRookMagicSearch(27);
-
-    testMagicBitboardsVsSlowVersion();
-
-    destroyBoard(board);
+    auto startTime = std::chrono::high_resolution_clock::now();
+    bishopMagicSearch();
+    rookMagicSearch();
+    std::chrono::duration<double, std::milli> elapsed = std::chrono::high_resolution_clock::now() - startTime;
+    std::cout << "Took " << elapsed.count() / 1000.0f << " seconds\n";
     return 0;
 }

@@ -46,7 +46,7 @@ uint64_t getKingAttacks(uint32_t square);
 uint64_t getPieceAttacks(uint32_t pieceType, uint32_t square, uint64_t occupancy); // Generalized for every piece type
 
 #ifdef __cplusplus
-}
+} // extern "C"
 #endif
 
 #endif // ATTACKS_H
