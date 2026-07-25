@@ -3,6 +3,7 @@
 // Std includes
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 // Utility
 static const char* boardVisualTemplate =
@@ -26,9 +27,56 @@ static const char* boardVisualTemplate =
 "   +---+---+---+---+---+---+---+---+   \n"
 "     a   b   c   d   e   f   g   h     \n"; // Visual template that gets copied to the given buffer
 
-// Create the Board struct (allocate memory)
+// Castle rights masks
+const uint8_t castleRightsMask[64] = {
+    0b1011, 0b1111, 0b1111, 0b1111, 0b0011, 0b1111, 0b1111, 0b0111,
+    0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111,
+    0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111,
+    0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111,
+    0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111,
+    0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111,
+    0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111, 0b1111,
+    0b1110, 0b1111, 0b1111, 0b1111, 0b1100, 0b1111, 0b1111, 0b1101
+};
+
+// En passant capture offset
+const int32_t epCaptureOffset[2] = {-8, 8};
+
+// makeMove utility
+void placePiece(Board* board, uint32_t pType, uint32_t square) {
+    uint64_t mask = (1ull << square);
+    board->pieces[pType] |= mask;
+    board->mailbox[square] = pType;
+    board->allPieces |= mask;
+    if (pType >= BLACK_OFFSET) board->blackPieces |= mask;
+    else board->whitePieces |= mask;
+}
+
+void removePiece(Board* board, uint32_t pType, uint32_t square) {
+    uint64_t mask = (1ull << square);
+    board->pieces[pType] &= ~mask;
+    board->mailbox[square] = NO_PIECE;
+    board->allPieces &= ~mask;
+    if (pType >= BLACK_OFFSET) board->blackPieces &= ~mask;
+    else board->whitePieces &= ~mask;
+}
+
+void movePiece(Board* board, uint32_t pType, uint32_t from, uint32_t to) {
+    uint64_t mask = (1ull << from) | (1ull << to);
+    board->pieces[pType] ^= mask;
+    board->mailbox[from] = NO_PIECE;
+    board->mailbox[to] = pType;
+    board->allPieces ^= mask;
+    if (pType >= BLACK_OFFSET) board->blackPieces ^= mask;
+    else board->whitePieces ^= mask;
+}
+
+// Create the Board struct (allocate memory and clear board fields)
 Board* createBoard() {
-    return (Board*) calloc(1, sizeof(Board));
+    Board* board = (Board*) calloc(1, sizeof(Board));
+    for (uint32_t i = 0; i < 64; i += 1) board->mailbox[i] = NO_PIECE;
+    board->epTarget = NO_EP_TARGET;
+    return board;
 }
 
 // Create the Board struct's object (allocate memory) and set the board in the starting position via setFen(...)
@@ -45,11 +93,189 @@ void destroyBoard(Board* board) {
 
 // Make moves on the boards
 void makeMove(Board* board, Move move, PrevState* state) {
-    // state->captured = board->
+    uint32_t from = moveFrom(move), to = moveTo(move), flag = moveFlag(move), capture = to; // Unpack move data
+    if (flag == MOVE_EP_CAPTURE) capture += epCaptureOffset[board->sideToMove];
+    uint32_t pType = board->mailbox[from], capType = board->mailbox[capture];
+
+    // Store prev state
+    state->captured = capType;
+    state->castle = board->castle;
+    state->epTarget = board->epTarget;
+    state->halfMoves = board->halfMoves;
+
+    board->halfMoves = (pType == PAWN || pType == BLACK_OFFSET || capType < NO_PIECE) ? 0 : board->halfMoves + 1;
+    board->epTarget = NO_EP_TARGET;
+
+    switch (flag) {
+    case MOVE_QUIET:
+        movePiece(board, pType, from, to);
+        break;
+
+    case MOVE_DOUBLE_PUSH:
+        movePiece(board, pType, from, to);
+        board->epTarget = to + epCaptureOffset[board->sideToMove];
+        break;
+
+    case MOVE_CASTLE_K:
+        movePiece(board, pType, from, to);
+        movePiece(board, pType + ROOK - KING, from + 3, to - 1);
+        break;
+
+    case MOVE_CASTLE_Q:
+        movePiece(board, pType, from, to);
+        movePiece(board, pType + ROOK - KING, from - 4, to + 1);
+        break;
+
+    case MOVE_CAPTURE:
+        removePiece(board, capType, capture);
+        movePiece(board, pType, from, to);
+        break;
+
+    case MOVE_EP_CAPTURE:
+        removePiece(board, capType, capture);
+        movePiece(board, pType, from, to);
+        break;
+
+    case MOVE_PROMO_N:
+        removePiece(board, pType, from);
+        placePiece(board, pType + KNIGHT, to);
+        break;
+
+    case MOVE_PROMO_B:
+        removePiece(board, pType, from);
+        placePiece(board, pType + BISHOP, to);
+        break;
+
+    case MOVE_PROMO_R:
+        removePiece(board, pType, from);
+        placePiece(board, pType + ROOK, to);
+        break;
+
+    case MOVE_PROMO_Q:
+        removePiece(board, pType, from);
+        placePiece(board, pType + QUEEN, to);
+        break;
+
+    case MOVE_PROMO_CAPTURE_N:
+        removePiece(board, capType, capture);
+        removePiece(board, pType, from);
+        placePiece(board, pType + KNIGHT, to);
+        break;
+
+    case MOVE_PROMO_CAPTURE_B:
+        removePiece(board, capType, capture);
+        removePiece(board, pType, from);
+        placePiece(board, pType + BISHOP, to);
+        break;
+
+    case MOVE_PROMO_CAPTURE_R:
+        removePiece(board, capType, capture);
+        removePiece(board, pType, from);
+        placePiece(board, pType + ROOK, to);
+        break;
+
+    case MOVE_PROMO_CAPTURE_Q:
+        removePiece(board, capType, capture);
+        removePiece(board, pType, from);
+        placePiece(board, pType + QUEEN, to);
+        break;
+
+    default:
+        fprintf(stderr, "makeMove() failed: Invalid Flag!\n");
+        exit(1);
+    }
+
+    board->castle &= castleRightsMask[from] & castleRightsMask[to];
+    board->sideToMove ^= 0b1;
 }
 
 void unmakeMove(Board* board, Move move, PrevState* state) {
+    board->sideToMove ^= 0b1;
+    uint32_t from = moveFrom(move), to = moveTo(move), flag = moveFlag(move), capture = to; // Unpack move data
+    if (flag == MOVE_EP_CAPTURE) capture += epCaptureOffset[board->sideToMove];
+    uint32_t pType = board->mailbox[to], capType = state->captured;
 
+    switch (flag) {
+    case MOVE_QUIET:
+        movePiece(board, pType, to, from);
+        break;
+
+    case MOVE_DOUBLE_PUSH:
+        movePiece(board, pType, to, from);
+        break;
+
+    case MOVE_CASTLE_K:
+        movePiece(board, pType + ROOK - KING, to - 1, from + 3);
+        movePiece(board, pType, to, from);
+        break;
+
+    case MOVE_CASTLE_Q:
+        movePiece(board, pType + ROOK - KING, to + 1, from - 4);
+        movePiece(board, pType, to, from);
+        break;
+
+    case MOVE_CAPTURE:
+        movePiece(board, pType, to, from);
+        placePiece(board, capType, capture);
+        break;
+
+    case MOVE_EP_CAPTURE:
+        movePiece(board, pType, to, from);
+        placePiece(board, capType, capture);
+        break;
+
+    case MOVE_PROMO_N:
+        removePiece(board, pType, to);
+        placePiece(board, pType - KNIGHT, from);
+        break;
+
+    case MOVE_PROMO_B:
+        removePiece(board, pType, to);
+        placePiece(board, pType - BISHOP, from);
+        break;
+
+    case MOVE_PROMO_R:
+        removePiece(board, pType, to);
+        placePiece(board, pType - ROOK, from);
+        break;
+
+    case MOVE_PROMO_Q:
+        removePiece(board, pType, to);
+        placePiece(board, pType - QUEEN, from);
+        break;
+
+    case MOVE_PROMO_CAPTURE_N:
+        removePiece(board, pType, to);
+        placePiece(board, pType - KNIGHT, from);
+        placePiece(board, capType, capture);
+        break;
+
+    case MOVE_PROMO_CAPTURE_B:
+        removePiece(board, pType, to);
+        placePiece(board, pType - BISHOP, from);
+        placePiece(board, capType, capture);
+        break;
+
+    case MOVE_PROMO_CAPTURE_R:
+        removePiece(board, pType, to);
+        placePiece(board, pType - ROOK, from);
+        placePiece(board, capType, capture);
+        break;
+
+    case MOVE_PROMO_CAPTURE_Q:
+        removePiece(board, pType, to);
+        placePiece(board, pType - QUEEN, from);
+        placePiece(board, capType, capture);
+        break;
+
+    default:
+        fprintf(stderr, "unmakeMove() failed: Invalid Flag!\n");
+        exit(1);
+    }
+
+    board->castle = state->castle;
+    board->epTarget = state->epTarget;
+    board->halfMoves = state->halfMoves;
 }
 
 // Compute merged bitboards (deprecated)
@@ -70,7 +296,7 @@ void computeBitboards(Board* board) {
 void setFen(Board* board, const char* fen) {
     // Zero the entire board, ready for new FEN configuration
     memset(board, 0, sizeof(Board));
-    memset(board->mailbox, NO_PIECE, sizeof(board->mailbox));
+    for (uint32_t i = 0; i < 64; i += 1) board->mailbox[i] = NO_PIECE;
     board->epTarget = NO_EP_TARGET;
 
     // Initiate function-scope values
@@ -114,8 +340,7 @@ void setFen(Board* board, const char* fen) {
             case 'K': pType = KING + offset; break;
             default: break;
         }
-        if (pType < NO_PIECE) board->pieces[pType] |= (1ull << square);
-        board->mailbox[square] = pType;
+        if (pType < NO_PIECE) placePiece(board, pType, square);
 
         // Next file
         file += 1;

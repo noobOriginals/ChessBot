@@ -47,9 +47,27 @@ extern "C" {
 #define RANK_6 0b0000000000000000111111110000000000000000000000000000000000000000ull
 #define RANK_7 0b0000000011111111000000000000000000000000000000000000000000000000ull
 #define RANK_8 0b1111111100000000000000000000000000000000000000000000000000000000ull
-#define MOVE_FROM_MASK 0b0000000000111111
-#define MOVE_TO_MASK   0b0000111111000000
-#define MOVE_FLAG_MASK 0b1111000000000000
+#define MOVE_FROM_MASK 0b0000000000111111u
+#define MOVE_TO_MASK   0b0000111111000000u
+#define MOVE_FLAG_MASK 0b1111000000000000u
+#define MOVE_QUIET 0
+#define MOVE_DOUBLE_PUSH 1
+#define MOVE_CASTLE_K 2
+#define MOVE_CASTLE_Q 3
+#define MOVE_CAPTURE 4
+#define MOVE_EP_CAPTURE 5
+#define MOVE_PROMO_N 8
+#define MOVE_PROMO_B 9
+#define MOVE_PROMO_R 10
+#define MOVE_PROMO_Q 11
+#define MOVE_PROMO_CAPTURE_OFF 4
+#define MOVE_PROMO_CAPTURE_N 12
+#define MOVE_PROMO_CAPTURE_B 13
+#define MOVE_PROMO_CAPTURE_R 14
+#define MOVE_PROMO_CAPTURE_Q 15
+#define moveFrom(x) ((uint32_t) x & MOVE_FROM_MASK)
+#define moveTo(x) (((uint32_t) x & MOVE_TO_MASK) >> 6)
+#define moveFlag(x) (((uint32_t) x & MOVE_FLAG_MASK) >> 12)
 #if defined(_MSC_VER)
     #include <intrin.h>
     #define popcount64(x) __popcnt64(x)
@@ -74,7 +92,13 @@ typedef struct {
     uint32_t epTarget, halfMoves;
 } PrevState;
 
-// Create the Board struct's object (allocate memory)
+// Castle rights masks
+extern const uint8_t castleRightsMask[64];
+
+// En passant capture offset
+extern const int32_t epCaptureOffset[2];
+
+// Create the Board struct's object (allocate memory and clear board fields)
 Board* createBoard();
 
 // Create the Board struct's object (allocate memory) and set the board in the starting position via setFen(...)
@@ -82,6 +106,11 @@ Board* createDefaultBoard();
 
 // Free memory (just free())
 void destroyBoard(Board* board);
+
+// makeMove utility
+void placePiece(Board* board, uint32_t pType, uint32_t square);
+void removePiece(Board* board, uint32_t pType, uint32_t square);
+void movePiece(Board* board, uint32_t pType, uint32_t from, uint32_t to);
 
 // Make moves on the boards
 void makeMove(Board* board, Move move, PrevState* state);
