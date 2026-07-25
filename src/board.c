@@ -43,7 +43,16 @@ void destroyBoard(Board* board) {
     free(board);
 }
 
-// Compute merged bitboards
+// Make moves on the boards
+void makeMove(Board* board, Move move, PrevState* state) {
+    // state->captured = board->
+}
+
+void unmakeMove(Board* board, Move move, PrevState* state) {
+
+}
+
+// Compute merged bitboards (deprecated)
 void computeBitboards(Board* board) {
     board->whitePieces = 0;
     board->blackPieces = 0;
@@ -61,6 +70,7 @@ void computeBitboards(Board* board) {
 void setFen(Board* board, const char* fen) {
     // Zero the entire board, ready for new FEN configuration
     memset(board, 0, sizeof(Board));
+    memset(board->mailbox, NO_PIECE, sizeof(board->mailbox));
     board->epTarget = NO_EP_TARGET;
 
     // Initiate function-scope values
@@ -94,15 +104,18 @@ void setFen(Board* board, const char* fen) {
             piece = fen[i] - 'a' + 'A'; // To upper case
         }
 
+        uint32_t pType = NO_PIECE;
         switch (piece) {
-            case 'P': board->pieces[PAWN + offset] |= (1ull << square); break;
-            case 'N': board->pieces[KNIGHT + offset] |= (1ull << square); break;
-            case 'B': board->pieces[BISHOP + offset] |= (1ull << square); break;
-            case 'R': board->pieces[ROOK + offset] |= (1ull << square); break;
-            case 'Q': board->pieces[QUEEN + offset] |= (1ull << square); break;
-            case 'K': board->pieces[KING + offset] |= (1ull << square); break;
+            case 'P': pType = PAWN + offset; break;
+            case 'N': pType = KNIGHT + offset; break;
+            case 'B': pType = BISHOP + offset; break;
+            case 'R': pType = ROOK + offset; break;
+            case 'Q': pType = QUEEN + offset; break;
+            case 'K': pType = KING + offset; break;
             default: break;
         }
+        if (pType < NO_PIECE) board->pieces[pType] |= (1ull << square);
+        board->mailbox[square] = pType;
 
         // Next file
         file += 1;
@@ -171,32 +184,27 @@ void setFenAndMoves(Board* board, const char* fen, const char** moves, uint32_t 
 // Returns the FEN string representation of the board
 int32_t getFen(Board* board, char* fen, uint64_t fenSize) {
     uint32_t i = 0; if (i >= fenSize) return 1;
-    computeBitboards(board); // Compute all necessary bitboards
     for (uint32_t rank = 8; rank > 0; rank--) {
         uint32_t empty = 0;
         for (uint32_t file = 0; file < 8; file += 1) {
             uint32_t square = (rank - 1) * 8 + file;
             char piece = ' ';
-            if (board->allPieces & (1ull << square)) { // Only if a piece is present
-                for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) { // Check until finding the right piece type
-                    if (board->pieces[bb] & (1ull << square)) {
-                        if (bb >= BLACK_OFFSET) {
-                            bb -= BLACK_OFFSET; // Switch to constant indicees
-                            piece = 'a' - 'A'; // To lower case after adding the piece character
-                        } else {
-                            piece = 0;
-                        }
-                        switch (bb) {
-                            case PAWN: piece += 'P'; break;
-                            case KNIGHT: piece += 'N'; break;
-                            case BISHOP: piece += 'B'; break;
-                            case ROOK: piece += 'R'; break;
-                            case QUEEN: piece += 'Q'; break;
-                            case KING: piece += 'K'; break;
-                            default: piece = ' '; break;
-                        }
-                        break;
-                    }
+            if (board->mailbox[square] < NO_PIECE) { // Only if a piece is present
+                uint32_t pType = board->mailbox[square];
+                if (pType >= BLACK_OFFSET) {
+                    pType -= BLACK_OFFSET; // Switch to constant indicees
+                    piece = 'a' - 'A'; // To lower case after adding the piece character
+                } else {
+                    piece = 0;
+                }
+                switch (pType) {
+                    case PAWN: piece += 'P'; break;
+                    case KNIGHT: piece += 'N'; break;
+                    case BISHOP: piece += 'B'; break;
+                    case ROOK: piece += 'R'; break;
+                    case QUEEN: piece += 'Q'; break;
+                    case KING: piece += 'K'; break;
+                    default: piece = ' '; break;
                 }
             } else {
                 empty += 1; // Count empty square
@@ -337,33 +345,26 @@ int32_t getVisualBoardString(Board* board, char* str, uint64_t size) {
     if (size < strlen(boardVisualTemplate)) return 1;
     memcpy(str, boardVisualTemplate, strlen(boardVisualTemplate));
 
-    computeBitboards(board); // Compute all necessary bitboards
     uint32_t vidx = 85; // First index of a square in the visual template
     for (uint32_t rank = 8; rank > 0; rank--) {
         for (uint32_t file = 0; file < 8; file += 1) {
             uint32_t square = (rank - 1) * 8 + file;
             char piece = ' ';
-            if (board->allPieces & (1ull << square)) { // Only if a piece is present
-                for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) { // Check until finding the right piece type
-                    if (board->pieces[bb] & (1ull << square)) {
-                        if (bb >= BLACK_OFFSET) {
-                            bb -= BLACK_OFFSET; // Switch to constant indicees
-                            piece = 'a' - 'A'; // To lower case
-                        } else {
-                            piece = 0;
-                        }
-                        switch (bb) {
-                            case PAWN: piece += 'P'; break;
-                            case KNIGHT: piece += 'N'; break;
-                            case BISHOP: piece += 'B'; break;
-                            case ROOK: piece += 'R'; break;
-                            case QUEEN: piece += 'Q'; break;
-                            case KING: piece += 'K'; break;
-                            default: piece = ' '; break;
-                        }
-                        break;
-                    }
-                }
+            uint32_t pType = board->mailbox[square];
+            if (pType >= BLACK_OFFSET) {
+                pType -= BLACK_OFFSET; // Switch to constant indicees
+                piece = 'a' - 'A'; // To lower case after adding the piece character
+            } else {
+                piece = 0;
+            }
+            switch (pType) {
+                case PAWN: piece += 'P'; break;
+                case KNIGHT: piece += 'N'; break;
+                case BISHOP: piece += 'B'; break;
+                case ROOK: piece += 'R'; break;
+                case QUEEN: piece += 'Q'; break;
+                case KING: piece += 'K'; break;
+                default: piece = ' '; break;
             }
             str[vidx] = piece;
             vidx += 4; // File offset in template visual

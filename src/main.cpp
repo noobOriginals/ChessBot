@@ -3,7 +3,6 @@
 
 #include "board.h"
 #include "attacks.h"
-#include "magic_search.h"
 
 #define TEST_FEN_1 "r1bqk2r/pppp1ppp/2n2n2/1Bb1p3/4P3/3P1N2/PPP2PPP/RNBQ1RK1 b kq - 0 5"
 
@@ -111,11 +110,12 @@ void testMagicBitboardsVsSlowVersion() {
 
 int main() {
     initAttackTables();
-
-    auto startTime = std::chrono::high_resolution_clock::now();
-    bishopMagicSearch();
-    rookMagicSearch();
-    std::chrono::duration<double, std::milli> elapsed = std::chrono::high_resolution_clock::now() - startTime;
-    std::cout << "Took " << elapsed.count() / 1000.0f << " seconds\n";
+    board = createDefaultBoard();
+    testBoardFen();
+    testBoardVisual();
+    setFen(board, TEST_FEN_1);
+    testBoardFen();
+    testBoardVisual();
+    testBitboardVisual(board->pieces[0]);
     return 0;
 }

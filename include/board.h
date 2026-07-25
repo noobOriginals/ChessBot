@@ -47,6 +47,9 @@ extern "C" {
 #define RANK_6 0b0000000000000000111111110000000000000000000000000000000000000000ull
 #define RANK_7 0b0000000011111111000000000000000000000000000000000000000000000000ull
 #define RANK_8 0b1111111100000000000000000000000000000000000000000000000000000000ull
+#define MOVE_FROM_MASK 0b0000000000111111
+#define MOVE_TO_MASK   0b0000111111000000
+#define MOVE_FLAG_MASK 0b1111000000000000
 #if defined(_MSC_VER)
     #include <intrin.h>
     #define popcount64(x) __popcnt64(x)
@@ -58,9 +61,18 @@ extern "C" {
 // Board struct
 typedef struct {
     uint64_t pieces[TOTAL_PIECE_TYPES], whitePieces, blackPieces, allPieces; // Bitboards (12 for each piece, plus the computed ones for white, black and all pieces)
+    uint32_t mailbox[64];
     uint8_t castle, sideToMove; // Store int 8 bits, no more needed
     uint32_t epTarget, halfMoves, fullMoves; // Additional board info for en passant and 50-move rule
 } Board;
+
+// Move and unmake move structs
+typedef uint16_t Move; // 6 bits from + 6 bits to + 4 bits for flags
+typedef struct {
+    uint16_t captured;
+    uint8_t castle;
+    uint32_t epTarget, halfMoves;
+} PrevState;
 
 // Create the Board struct's object (allocate memory)
 Board* createBoard();
@@ -71,7 +83,12 @@ Board* createDefaultBoard();
 // Free memory (just free())
 void destroyBoard(Board* board);
 
-// Compute merged bitboards
+// Make moves on the boards
+void makeMove(Board* board, Move move, PrevState* state);
+void unmakeMove(Board* board, Move move, PrevState* state);
+
+// Compute merged bitboards (deprecated)
+[[deprecated]]
 void computeBitboards(Board* board);
 
 // Sets the board to the specified FEN
