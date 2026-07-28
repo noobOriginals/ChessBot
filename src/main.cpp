@@ -1,29 +1,28 @@
 #include <iostream>
 #include <chrono>
+#include <string>
 
 #include "board.h"
 #include "attacks.h"
 
 #define TEST_FEN_1 "r1bqk2r/pppp1ppp/2n2n2/1Bb1p3/4P3/3P1N2/PPP2PPP/RNBQ1RK1 b kq - 0 5"
 
-Board* board;
-
-void testBoardVisual() {
+void displayBoard(Board* board) {
     char buffer[1024] = {};
     getVisualBoardString(board, buffer, 1024);
-    std::cout << buffer << "\n";
+    std::cout << buffer;
 }
 
-void testBoardFen() {
+void displayBoardFen(Board* board) {
     char buffer[1024] = {};
     getFen(board, buffer, 1024);
     std::cout << buffer << "\n";
 }
 
-void testBitboardVisual(uint64_t bitboard) {
+void displayBitboard(uint64_t bitboard) {
     char buffer[1024] = {};
     getVisualBitboardString(bitboard, buffer, 1024);
-    std::cout << buffer << "\n";
+    std::cout << buffer;
 }
 
 int32_t assertPositions(uint64_t actual, uint64_t expected) {
@@ -110,12 +109,61 @@ void testMagicBitboardsVsSlowVersion() {
 
 int main() {
     initAttackTables();
-    board = createDefaultBoard();
-    testBoardFen();
-    testBoardVisual();
-    setFen(board, TEST_FEN_1);
-    testBoardFen();
-    testBoardVisual();
-    testBitboardVisual(board->pieces[0]);
+    Board* board = createBoard();
+    Move moves[1024];
+    PrevState prevState[1024];
+    uint32_t prevIdx = 0;
+    std::string input;
+    std::cout << "Enter initial board state: ";
+    std::cin >> input;
+    if (input == "startpos") setFen(board, STARTPOS_FEN);
+    else setFen(board, input.c_str());
+    std::cin >> input;
+    while (input != "go") {
+        moves[prevIdx] = getMoveFromAlgebraic(board, input.c_str());
+        makeMove(board, moves[prevIdx], &prevState[prevIdx]);
+        prevIdx++;
+        std::cin >> input;
+    }
+    while (true) {
+        displayBoard(board);
+        displayBoardFen(board);
+        std::cout << "\nEnter move: ";
+        std::cin >> input;
+        if (input == "quit") break;
+        if (input == "print") {
+            std::cin >> input;
+            switch (input[0]) {
+            case 'P': displayBitboard(board->pieces[0]); break;
+            case 'N': displayBitboard(board->pieces[1]); break;
+            case 'B': displayBitboard(board->pieces[2]); break;
+            case 'R': displayBitboard(board->pieces[3]); break;
+            case 'Q': displayBitboard(board->pieces[4]); break;
+            case 'K': displayBitboard(board->pieces[5]); break;
+            case 'p': displayBitboard(board->pieces[6]); break;
+            case 'n': displayBitboard(board->pieces[7]); break;
+            case 'b': displayBitboard(board->pieces[8]); break;
+            case 'r': displayBitboard(board->pieces[9]); break;
+            case 'q': displayBitboard(board->pieces[10]); break;
+            case 'k': displayBitboard(board->pieces[11]); break;
+            default: break;
+            }
+            continue;
+        }
+        if (input == "undo") {
+            if (prevIdx < 1) continue;
+            prevIdx--;
+            unmakeMove(board, moves[prevIdx], &prevState[prevIdx]);
+        } else if (input == "redo") {
+            if (moves[prevIdx] == 0) continue;
+            makeMove(board, moves[prevIdx], &prevState[prevIdx]);
+            prevIdx++;
+        } else {
+            moves[prevIdx] = getMoveFromAlgebraic(board, input.c_str());
+            makeMove(board, moves[prevIdx], &prevState[prevIdx]);
+            prevIdx++;
+        }
+    }
+    destroyBoard(board);
     return 0;
 }

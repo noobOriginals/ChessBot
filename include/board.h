@@ -116,6 +116,9 @@ void movePiece(Board* board, uint32_t pType, uint32_t from, uint32_t to);
 void makeMove(Board* board, Move move, PrevState* state);
 void unmakeMove(Board* board, Move move, PrevState* state);
 
+// Convert algebraic notation to Move type
+Move getMoveFromAlgebraic(Board* board, const char* agbMove);
+
 // Compute merged bitboards (deprecated)
 #if defined(_MSC_VER)
     __declspec(deprecated)

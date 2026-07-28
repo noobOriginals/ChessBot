@@ -94,8 +94,8 @@ void destroyBoard(Board* board) {
 // Make moves on the boards
 void makeMove(Board* board, Move move, PrevState* state) {
     uint32_t from = moveFrom(move), to = moveTo(move), flag = moveFlag(move), capture = to; // Unpack move data
-    if (flag == MOVE_EP_CAPTURE) capture += epCaptureOffset[board->sideToMove];
-    uint32_t pType = board->mailbox[from], capType = board->mailbox[capture];
+    if (flag == MOVE_EP_CAPTURE) capture += epCaptureOffset[board->sideToMove]; // Necessary for en passant
+    uint32_t pType = board->mailbox[from], capType = board->mailbox[capture]; // Get piece types
 
     // Store prev state
     state->captured = capType;
@@ -103,57 +103,58 @@ void makeMove(Board* board, Move move, PrevState* state) {
     state->epTarget = board->epTarget;
     state->halfMoves = board->halfMoves;
 
-    board->halfMoves = (pType == PAWN || pType == BLACK_OFFSET || capType < NO_PIECE) ? 0 : board->halfMoves + 1;
+    // Default board update
+    board->halfMoves = (pType == PAWN || pType == BLACK_OFFSET || capType != NO_PIECE) ? 0 : board->halfMoves + 1;
     board->epTarget = NO_EP_TARGET;
 
     switch (flag) {
     case MOVE_QUIET:
-        movePiece(board, pType, from, to);
+        movePiece(board, pType, from, to); // Just move the piece
         break;
 
     case MOVE_DOUBLE_PUSH:
         movePiece(board, pType, from, to);
-        board->epTarget = to + epCaptureOffset[board->sideToMove];
+        board->epTarget = to + epCaptureOffset[board->sideToMove]; // Also set ep target
         break;
 
     case MOVE_CASTLE_K:
         movePiece(board, pType, from, to);
-        movePiece(board, pType + ROOK - KING, from + 3, to - 1);
+        movePiece(board, pType + ROOK - KING, from + 3, to - 1); // Move the rook of the same color (pType always is KING, but color differs)
         break;
 
     case MOVE_CASTLE_Q:
         movePiece(board, pType, from, to);
-        movePiece(board, pType + ROOK - KING, from - 4, to + 1);
+        movePiece(board, pType + ROOK - KING, from - 4, to + 1); // Move the rook of the same color (pType always is KING, but color differs)
         break;
 
     case MOVE_CAPTURE:
-        removePiece(board, capType, capture);
+        removePiece(board, capType, capture); // First remove the captured piece for movePiece() to work properly
         movePiece(board, pType, from, to);
         break;
 
     case MOVE_EP_CAPTURE:
-        removePiece(board, capType, capture);
+        removePiece(board, capType, capture); // First remove the captured piece for movePiece() to work properly. EP capture handled earlier
         movePiece(board, pType, from, to);
         break;
 
     case MOVE_PROMO_N:
-        removePiece(board, pType, from);
-        placePiece(board, pType + KNIGHT, to);
+        removePiece(board, pType, from); // Remove the pawn
+        placePiece(board, pType + KNIGHT, to); // pType always is KNIGHT, color differs
         break;
 
     case MOVE_PROMO_B:
-        removePiece(board, pType, from);
-        placePiece(board, pType + BISHOP, to);
+        removePiece(board, pType, from); // Remove the pawn
+        placePiece(board, pType + BISHOP, to); // pType always is BISHOP, color differs
         break;
 
     case MOVE_PROMO_R:
-        removePiece(board, pType, from);
-        placePiece(board, pType + ROOK, to);
+        removePiece(board, pType, from); // Remove the pawn
+        placePiece(board, pType + ROOK, to); // pType always is ROOK, color differs
         break;
 
     case MOVE_PROMO_Q:
-        removePiece(board, pType, from);
-        placePiece(board, pType + QUEEN, to);
+        removePiece(board, pType, from); // Remove the pawn
+        placePiece(board, pType + QUEEN, to); // pType always is QUEEN, color differs
         break;
 
     case MOVE_PROMO_CAPTURE_N:
@@ -185,63 +186,64 @@ void makeMove(Board* board, Move move, PrevState* state) {
         exit(1);
     }
 
-    board->castle &= castleRightsMask[from] & castleRightsMask[to];
-    board->sideToMove ^= 0b1;
+    board->castle &= castleRightsMask[from] & castleRightsMask[to]; // Update castle rights
+    board->fullMoves += board->sideToMove; // Increment full move count (black increments, white does nothing)
+    board->sideToMove ^= 0b1; // Flip side to move
 }
 
 void unmakeMove(Board* board, Move move, PrevState* state) {
-    board->sideToMove ^= 0b1;
+    board->sideToMove ^= 0b1; // Flip first for correct ep capture offset
     uint32_t from = moveFrom(move), to = moveTo(move), flag = moveFlag(move), capture = to; // Unpack move data
-    if (flag == MOVE_EP_CAPTURE) capture += epCaptureOffset[board->sideToMove];
-    uint32_t pType = board->mailbox[to], capType = state->captured;
+    if (flag == MOVE_EP_CAPTURE) capture += epCaptureOffset[board->sideToMove]; // When undoing en passant move
+    uint32_t pType = board->mailbox[to], capType = state->captured; // Get piece types
 
     switch (flag) {
     case MOVE_QUIET:
-        movePiece(board, pType, to, from);
+        movePiece(board, pType, to, from); // Move in reverse (to -> from)
         break;
 
     case MOVE_DOUBLE_PUSH:
-        movePiece(board, pType, to, from);
+        movePiece(board, pType, to, from); // Move in reverse (to -> from)
         break;
 
     case MOVE_CASTLE_K:
-        movePiece(board, pType + ROOK - KING, to - 1, from + 3);
+        movePiece(board, pType + ROOK - KING, to - 1, from + 3); // Move rook of same color (like makeMove() does above)
         movePiece(board, pType, to, from);
         break;
 
     case MOVE_CASTLE_Q:
-        movePiece(board, pType + ROOK - KING, to + 1, from - 4);
+        movePiece(board, pType + ROOK - KING, to + 1, from - 4); // Move rook of same color (like makeMove() does above)
         movePiece(board, pType, to, from);
         break;
 
     case MOVE_CAPTURE:
-        movePiece(board, pType, to, from);
-        placePiece(board, capType, capture);
+        movePiece(board, pType, to, from); // First move the piece
+        placePiece(board, capType, capture); // Then place the captured one
         break;
 
     case MOVE_EP_CAPTURE:
-        movePiece(board, pType, to, from);
-        placePiece(board, capType, capture);
+        movePiece(board, pType, to, from); // First move the piece
+        placePiece(board, capType, capture); // Then place the captured one (en passant handled above)
         break;
 
     case MOVE_PROMO_N:
-        removePiece(board, pType, to);
-        placePiece(board, pType - KNIGHT, from);
+        removePiece(board, pType, to); // Remove the current piece
+        placePiece(board, pType - KNIGHT, from); // Place the pawn back (pType is always KNIGHT, color differs)
         break;
 
     case MOVE_PROMO_B:
-        removePiece(board, pType, to);
-        placePiece(board, pType - BISHOP, from);
+        removePiece(board, pType, to); // Remove the current piece
+        placePiece(board, pType - BISHOP, from); // Place the pawn back (pType is always BISHOP, color differs)
         break;
 
     case MOVE_PROMO_R:
-        removePiece(board, pType, to);
-        placePiece(board, pType - ROOK, from);
+        removePiece(board, pType, to); // Remove the current piece
+        placePiece(board, pType - ROOK, from); // Place the pawn back (pType is always ROOK, color differs)
         break;
 
     case MOVE_PROMO_Q:
-        removePiece(board, pType, to);
-        placePiece(board, pType - QUEEN, from);
+        removePiece(board, pType, to); // Remove the current piece
+        placePiece(board, pType - QUEEN, from); // Place the pawn back (pType is always QUEEN, color differs)
         break;
 
     case MOVE_PROMO_CAPTURE_N:
@@ -273,9 +275,69 @@ void unmakeMove(Board* board, Move move, PrevState* state) {
         exit(1);
     }
 
+    // Restore prev state
     board->castle = state->castle;
     board->epTarget = state->epTarget;
     board->halfMoves = state->halfMoves;
+    board->fullMoves -= board->sideToMove; // Decrement full move count (black decrements, white does nothing)
+}
+
+// Convert algebraic notation to Move type
+Move getMoveFromAlgebraic(Board* board, const char* agbMove) {
+    if (strlen(agbMove) < 4) {
+        fprintf(stderr, "getMoveFromAlgebraic() failed: Invalid move length: %s\n", agbMove);
+        exit(1);
+    }
+
+    // Check move
+    int32_t valid = 1;
+    if (agbMove[0] < 'a' || agbMove[0] > 'h') valid = 0;
+    if (agbMove[1] < '1' || agbMove[1] > '8') valid = 0;
+    if (agbMove[2] < 'a' || agbMove[2] > 'h') valid = 0;
+    if (agbMove[3] < '1' || agbMove[3] > '8') valid = 0;
+    if (!valid) {
+        fprintf(stderr, "getMoveFromAlgebraic() failed: Invalid move format: %s\n", agbMove);
+        exit(1);
+    }
+
+    // Extract move data
+    uint32_t from = (agbMove[1] - '1') * 8 + agbMove[0] - 'a';
+    uint32_t to = (agbMove[3] - '1') * 8 + agbMove[2] - 'a';
+    uint32_t flag = MOVE_QUIET;
+
+    uint32_t distance = (to < from) ? from - to : to - from; // Distance between squares (always positive)
+    uint32_t sideOffset = BLACK_OFFSET * board->sideToMove; // Offset for handling different sides
+    uint32_t pType = board->mailbox[from]; // Piece type
+    uint32_t capType = board->mailbox[to]; // Capture type
+
+    if (capType != NO_PIECE) flag = MOVE_CAPTURE; // Standard piece captures
+
+    // In case of pawn
+    if (pType - sideOffset == PAWN) {
+        if (distance == 16) flag = MOVE_DOUBLE_PUSH; // Distance = 2 ranks -> double push
+        if (to == board->epTarget) flag = MOVE_EP_CAPTURE; // TO square is ep target -> en passant
+        if (to / 8 == 7 || to / 8 == 0) { // Panw reached last rank
+            if (strlen(agbMove) < 5) {
+                fprintf(stderr, "getMoveFromAlgebraic() failed: Invalid promotion move length: %s\n", agbMove);
+                exit(1);
+            }
+            switch (agbMove[4]) {
+                case 'n': flag = MOVE_PROMO_N; break;
+                case 'b': flag = MOVE_PROMO_B; break;
+                case 'r': flag = MOVE_PROMO_R; break;
+                case 'q': flag = MOVE_PROMO_Q; break;
+
+                default:
+                    fprintf(stderr, "getMoveFromAlgebraic() failed: Invalid promotion move format: %s\n", agbMove);
+                    exit(1);
+            }
+            if (capType != NO_PIECE) flag += MOVE_PROMO_CAPTURE_OFF; // Capture promotion
+        }
+    }
+
+    if (pType - sideOffset == KING && distance == 2) flag = (to < from) ? MOVE_CASTLE_Q : MOVE_CASTLE_K; // King and distance = 2 -> castle
+
+    return (Move) from | ((Move) to << 6) | ((Move) flag << 12);
 }
 
 // Compute merged bitboards (deprecated)
@@ -340,7 +402,7 @@ void setFen(Board* board, const char* fen) {
             case 'K': pType = KING + offset; break;
             default: break;
         }
-        if (pType < NO_PIECE) placePiece(board, pType, square);
+        if (pType < NO_PIECE) placePiece(board, pType, square); // Using the same placePiece() as makeMove()
 
         // Next file
         file += 1;
