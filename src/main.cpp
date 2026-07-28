@@ -133,20 +133,22 @@ int main() {
         if (input == "quit") break;
         if (input == "print") {
             std::cin >> input;
-            switch (input[0]) {
-            case 'P': displayBitboard(board->pieces[0]); break;
-            case 'N': displayBitboard(board->pieces[1]); break;
-            case 'B': displayBitboard(board->pieces[2]); break;
-            case 'R': displayBitboard(board->pieces[3]); break;
-            case 'Q': displayBitboard(board->pieces[4]); break;
-            case 'K': displayBitboard(board->pieces[5]); break;
-            case 'p': displayBitboard(board->pieces[6]); break;
-            case 'n': displayBitboard(board->pieces[7]); break;
-            case 'b': displayBitboard(board->pieces[8]); break;
-            case 'r': displayBitboard(board->pieces[9]); break;
-            case 'q': displayBitboard(board->pieces[10]); break;
-            case 'k': displayBitboard(board->pieces[11]); break;
-            default: break;
+            for (char c : input) {
+                switch (c) {
+                    case 'P': displayBitboard(board->pieces[0]); break;
+                    case 'N': displayBitboard(board->pieces[1]); break;
+                    case 'B': displayBitboard(board->pieces[2]); break;
+                    case 'R': displayBitboard(board->pieces[3]); break;
+                    case 'Q': displayBitboard(board->pieces[4]); break;
+                    case 'K': displayBitboard(board->pieces[5]); break;
+                    case 'p': displayBitboard(board->pieces[6]); break;
+                    case 'n': displayBitboard(board->pieces[7]); break;
+                    case 'b': displayBitboard(board->pieces[8]); break;
+                    case 'r': displayBitboard(board->pieces[9]); break;
+                    case 'q': displayBitboard(board->pieces[10]); break;
+                    case 'k': displayBitboard(board->pieces[11]); break;
+                    default: break;
+                }
             }
             continue;
         }
