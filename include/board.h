@@ -117,7 +117,11 @@ void makeMove(Board* board, Move move, PrevState* state);
 void unmakeMove(Board* board, Move move, PrevState* state);
 
 // Compute merged bitboards (deprecated)
-[[deprecated]]
+#if defined(_MSC_VER)
+    __declspec(deprecated)
+#else
+    __attribute__((deprecated))
+#endif
 void computeBitboards(Board* board);
 
 // Sets the board to the specified FEN
