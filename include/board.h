@@ -8,6 +8,9 @@
 extern "C" {
 #endif
 
+// Enable per piece bitboards
+// #define USE_PER_PIECE_BITBOARDS
+
 // Bitboard array constants
 #define TOTAL_PIECE_TYPES 12
 #define BLACK_OFFSET 6
@@ -78,7 +81,10 @@ extern "C" {
 
 // Board struct
 typedef struct {
-    uint64_t pieces[TOTAL_PIECE_TYPES], whitePieces, blackPieces, allPieces; // Bitboards (12 for each piece, plus the computed ones for white, black and all pieces)
+    uint64_t pieces[TOTAL_PIECE_TYPES], occupancies; // Bitboards (12 for each piece, plus the occupancies)
+#if defined(USE_PER_PIECE_BITBOARDS)
+    uint64_t whitePieces, blackPieces; // If needed, individual piece bitboards are available as well
+#endif
     uint32_t mailbox[64];
     uint8_t castle, sideToMove; // Store int 8 bits, no more needed
     uint32_t epTarget, halfMoves, fullMoves; // Additional board info for en passant and 50-move rule

@@ -47,18 +47,22 @@ void placePiece(Board* board, uint32_t pType, uint32_t square) {
     uint64_t mask = (1ull << square);
     board->pieces[pType] |= mask;
     board->mailbox[square] = pType;
-    board->allPieces |= mask;
+    board->occupancies |= mask;
+#if defined(USE_PER_PIECE_BITBOARDS)
     if (pType >= BLACK_OFFSET) board->blackPieces |= mask;
     else board->whitePieces |= mask;
+#endif
 }
 
 void removePiece(Board* board, uint32_t pType, uint32_t square) {
     uint64_t mask = (1ull << square);
     board->pieces[pType] &= ~mask;
     board->mailbox[square] = NO_PIECE;
-    board->allPieces &= ~mask;
+    board->occupancies &= ~mask;
+#if defined(USE_PER_PIECE_BITBOARDS)
     if (pType >= BLACK_OFFSET) board->blackPieces &= ~mask;
     else board->whitePieces &= ~mask;
+#endif
 }
 
 void movePiece(Board* board, uint32_t pType, uint32_t from, uint32_t to) {
@@ -66,9 +70,11 @@ void movePiece(Board* board, uint32_t pType, uint32_t from, uint32_t to) {
     board->pieces[pType] ^= mask;
     board->mailbox[from] = NO_PIECE;
     board->mailbox[to] = pType;
-    board->allPieces ^= mask;
+    board->occupancies ^= mask;
+#if defined(USE_PER_PIECE_BITBOARDS)
     if (pType >= BLACK_OFFSET) board->blackPieces ^= mask;
     else board->whitePieces ^= mask;
+#endif
 }
 
 // Create the Board struct (allocate memory and clear board fields)
@@ -342,6 +348,7 @@ Move getMoveFromAlgebraic(Board* board, const char* agbMove) {
 
 // Compute merged bitboards (deprecated)
 void computeBitboards(Board* board) {
+#if defined(USE_PER_PIECE_BITBOARDS)
     board->whitePieces = 0;
     board->blackPieces = 0;
     for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) {
@@ -351,7 +358,12 @@ void computeBitboards(Board* board) {
             board->blackPieces |= board->pieces[bb];
         }
     }
-    board->allPieces = board->whitePieces | board->blackPieces;
+    board->occupancies = board->whitePieces | board->blackPieces;
+#else
+    for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) {
+        board->occupancies |= board->pieces[bb];
+    }
+#endif
 }
 
 // Sets the board to the specified FEN

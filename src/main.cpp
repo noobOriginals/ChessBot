@@ -147,6 +147,10 @@ int main() {
                     case 'r': displayBitboard(board->pieces[9]); break;
                     case 'q': displayBitboard(board->pieces[10]); break;
                     case 'k': displayBitboard(board->pieces[11]); break;
+                    case 'W': displayBitboard(getPawnPushes(WHITE, board->pieces[0], board->occupancies)); break;
+                    case 'w': displayBitboard(getPawnPushes(BLACK, board->pieces[6], board->occupancies)); break;
+                    case 'X': displayBitboard(getPawnDoublePushes(WHITE, board->pieces[0], board->occupancies)); break;
+                    case 'x': displayBitboard(getPawnDoublePushes(BLACK, board->pieces[6], board->occupancies)); break;
                     default: break;
                 }
             }
