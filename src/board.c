@@ -42,15 +42,20 @@ const uint8_t castleRightsMask[64] = {
 // En passant capture offset
 const int32_t epCaptureOffset[2] = {-8, 8};
 
-// makeMove utility
+// Utility
+uint32_t popLSB(uint64_t* bitboard) {
+    uint32_t sq = ctzll(*bitboard);
+    *bitboard ^= (1ull << sq);
+    return sq;
+}
+
 void placePiece(Board* board, uint32_t pType, uint32_t square) {
     uint64_t mask = (1ull << square);
     board->pieces[pType] |= mask;
     board->mailbox[square] = pType;
-    board->occupancies |= mask;
+    board->occupancy |= mask;
 #if defined(USE_PER_PIECE_BITBOARDS)
-    if (pType >= BLACK_OFFSET) board->blackPieces |= mask;
-    else board->whitePieces |= mask;
+    board->sidePieces[pType >= BLACK_OFFSET] |= mask;
 #endif
 }
 
@@ -58,10 +63,9 @@ void removePiece(Board* board, uint32_t pType, uint32_t square) {
     uint64_t mask = (1ull << square);
     board->pieces[pType] &= ~mask;
     board->mailbox[square] = NO_PIECE;
-    board->occupancies &= ~mask;
+    board->occupancy &= ~mask;
 #if defined(USE_PER_PIECE_BITBOARDS)
-    if (pType >= BLACK_OFFSET) board->blackPieces &= ~mask;
-    else board->whitePieces &= ~mask;
+    board->sidePieces[pType >= BLACK_OFFSET] &= ~mask;
 #endif
 }
 
@@ -70,10 +74,9 @@ void movePiece(Board* board, uint32_t pType, uint32_t from, uint32_t to) {
     board->pieces[pType] ^= mask;
     board->mailbox[from] = NO_PIECE;
     board->mailbox[to] = pType;
-    board->occupancies ^= mask;
+    board->occupancy ^= mask;
 #if defined(USE_PER_PIECE_BITBOARDS)
-    if (pType >= BLACK_OFFSET) board->blackPieces ^= mask;
-    else board->whitePieces ^= mask;
+    board->sidePieces[pType >= BLACK_OFFSET] ^= mask;
 #endif
 }
 
@@ -349,19 +352,15 @@ Move getMoveFromAlgebraic(Board* board, const char* agbMove) {
 // Compute merged bitboards (deprecated)
 void computeBitboards(Board* board) {
 #if defined(USE_PER_PIECE_BITBOARDS)
-    board->whitePieces = 0;
-    board->blackPieces = 0;
+    board->sidePieces[WHITE] = 0;
+    board->sidePieces[BLACK] = 0;
     for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) {
-        if (bb < BLACK_OFFSET) {
-            board->whitePieces |= board->pieces[bb];
-        } else {
-            board->blackPieces |= board->pieces[bb];
-        }
+        board->sidePieces[bb >= BLACK_OFFSET] |= board->pieces[bb];
     }
-    board->occupancies = board->whitePieces | board->blackPieces;
+    board->occupancy = board->sidePieces[WHITE] | board->sidePieces[BLACK];
 #else
     for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) {
-        board->occupancies |= board->pieces[bb];
+        board->occupancy |= board->pieces[bb];
     }
 #endif
 }

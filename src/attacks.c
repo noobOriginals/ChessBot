@@ -106,8 +106,8 @@ static void initOccupancyMasks() {
                         (getSlidingAttacks(sq, 0, horzRankDirs, horzFileDirs, 2) & ~(FILE_A | FILE_H));
 
         // Count number of relevant bits
-        bishopRelevantBits[sq] = (uint32_t) popcount64(bishopMasks[sq]);
-        rookRelevantBits[sq] = (uint32_t) popcount64(rookMasks[sq]);
+        bishopRelevantBits[sq] = (uint32_t) popcountll(bishopMasks[sq]);
+        rookRelevantBits[sq] = (uint32_t) popcountll(rookMasks[sq]);
     }
 }
 

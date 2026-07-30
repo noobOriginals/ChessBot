@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 // Enable per piece bitboards
-// #define USE_PER_PIECE_BITBOARDS
+#define USE_PER_PIECE_BITBOARDS
 
 // Bitboard array constants
 #define TOTAL_PIECE_TYPES 12
@@ -73,17 +73,21 @@ extern "C" {
 #define moveFlag(x) (((uint32_t) x & MOVE_FLAG_MASK) >> 12)
 #if defined(_MSC_VER)
     #include <intrin.h>
-    #define popcount64(x) __popcnt64(x)
+    #define popcountll(x) __popcnt64(x)
+    #define ctzll(x) _tzcnt_u64(x)
+    #define clzll(x) _lzcnt_u64(x)
 #else
-    #define popcount64(x) __builtin_popcountll(x)
+    #define popcountll(x) __builtin_popcountll(x)
+    #define ctzll(x) __builtin_ctzll(x)
+    #define clzll(x) __builtin_clzll(x)
 #endif
 #define STARTPOS_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 // Board struct
 typedef struct {
-    uint64_t pieces[TOTAL_PIECE_TYPES], occupancies; // Bitboards (12 for each piece, plus the occupancies)
+    uint64_t pieces[TOTAL_PIECE_TYPES], occupancy; // Bitboards (12 for each piece, plus the occupancies)
 #if defined(USE_PER_PIECE_BITBOARDS)
-    uint64_t whitePieces, blackPieces; // If needed, individual piece bitboards are available as well
+    uint64_t sidePieces[2]; // If needed, individual piece bitboards are available as well
 #endif
     uint32_t mailbox[64];
     uint8_t castle, sideToMove; // Store int 8 bits, no more needed
@@ -104,6 +108,12 @@ extern const uint8_t castleRightsMask[64];
 // En passant capture offset
 extern const int32_t epCaptureOffset[2];
 
+// Utility
+uint32_t popLSB(uint64_t* bitboard);
+void placePiece(Board* board, uint32_t pType, uint32_t square);
+void removePiece(Board* board, uint32_t pType, uint32_t square);
+void movePiece(Board* board, uint32_t pType, uint32_t from, uint32_t to);
+
 // Create the Board struct's object (allocate memory and clear board fields)
 Board* createBoard();
 
@@ -112,11 +122,6 @@ Board* createDefaultBoard();
 
 // Free memory (just free())
 void destroyBoard(Board* board);
-
-// makeMove utility
-void placePiece(Board* board, uint32_t pType, uint32_t square);
-void removePiece(Board* board, uint32_t pType, uint32_t square);
-void movePiece(Board* board, uint32_t pType, uint32_t from, uint32_t to);
 
 // Make moves on the boards
 void makeMove(Board* board, Move move, PrevState* state);

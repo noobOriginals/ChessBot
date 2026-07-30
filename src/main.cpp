@@ -107,8 +107,7 @@ void testMagicBitboardsVsSlowVersion() {
     std::cout << "Took " << elapsed.count() / 1000.0f << " seconds\n";
 }
 
-int main() {
-    initAttackTables();
+void minigame() {
     Board* board = createBoard();
     Move moves[1024];
     PrevState prevState[1024];
@@ -147,10 +146,12 @@ int main() {
                     case 'r': displayBitboard(board->pieces[9]); break;
                     case 'q': displayBitboard(board->pieces[10]); break;
                     case 'k': displayBitboard(board->pieces[11]); break;
-                    case 'W': displayBitboard(getPawnPushes(WHITE, board->pieces[0], board->occupancies)); break;
-                    case 'w': displayBitboard(getPawnPushes(BLACK, board->pieces[6], board->occupancies)); break;
-                    case 'X': displayBitboard(getPawnDoublePushes(WHITE, board->pieces[0], board->occupancies)); break;
-                    case 'x': displayBitboard(getPawnDoublePushes(BLACK, board->pieces[6], board->occupancies)); break;
+                    case 'W': displayBitboard(getPawnPushes(WHITE, board->pieces[0], board->occupancy)); break;
+                    case 'w': displayBitboard(getPawnPushes(BLACK, board->pieces[6], board->occupancy)); break;
+                    case 'X': displayBitboard(getPawnDoublePushes(WHITE, board->pieces[0], board->occupancy)); break;
+                    case 'x': displayBitboard(getPawnDoublePushes(BLACK, board->pieces[6], board->occupancy)); break;
+                    case 'S': displayBitboard(board->sidePieces[WHITE]); break;
+                    case 's': displayBitboard(board->sidePieces[BLACK]); break;
                     default: break;
                 }
             }
@@ -170,6 +171,26 @@ int main() {
             prevIdx++;
         }
     }
+    destroyBoard(board);
+}
+
+int main() {
+    initAttackTables();
+
+    Board* board = createBoard();
+    setFen(board, "r1b1kbnr/pp1p1ppp/2p5/q3p1P1/4P3/3n1N2/PPP2P1P/RNBQKB1R w KQkq - 0 7");
+
+    uint64_t checkers = 0;
+    uint64_t opp = board->sidePieces[board->sideToMove ^ 0b1];
+    while (opp != 0) {
+        uint32_t sq = ctzll(opp);
+        uint64_t attacks = getPieceAttacks(board->mailbox[sq], sq, board->occupancy);
+        if (attacks & board->pieces[KING + BLACK_OFFSET * board->sideToMove]) checkers |= (1ull << sq);
+        opp ^= (1ull << sq);
+    }
+
+    displayBitboard(checkers);
+
     destroyBoard(board);
     return 0;
 }
