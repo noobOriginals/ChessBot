@@ -30,6 +30,7 @@ extern uint64_t bishopAttacks[5248], * bishopTablePointers[64];
 extern uint64_t rookAttacks[102400], * rookTablePointers[64];
 
 // Utility
+uint64_t getSlidingAttacks(uint32_t square, uint64_t occupancy, const int32_t* rankDirs, const int32_t* fileDirs, const uint32_t numDirs);
 uint64_t getBishopAttacksSlow(uint32_t square, uint64_t occupancy); // Slow version
 uint64_t getRookAttacksSlow(uint32_t square, uint64_t occupancy); // Slow version
 uint64_t getQueenAttacksSlow(uint32_t square, uint64_t occupancy); // Bishop | Rooks -> inherently slow

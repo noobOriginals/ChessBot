@@ -43,12 +43,6 @@ const uint8_t castleRightsMask[64] = {
 const int32_t epCaptureOffset[2] = {-8, 8};
 
 // Utility
-uint32_t popLSB(uint64_t* bitboard) {
-    uint32_t sq = ctzll(*bitboard);
-    *bitboard ^= (1ull << sq);
-    return sq;
-}
-
 void placePiece(Board* board, uint32_t pType, uint32_t square) {
     uint64_t mask = (1ull << square);
     board->pieces[pType] |= mask;
@@ -310,8 +304,8 @@ Move getMoveFromAlgebraic(Board* board, const char* agbMove) {
     }
 
     // Extract move data
-    uint32_t from = (agbMove[1] - '1') * 8 + agbMove[0] - 'a';
-    uint32_t to = (agbMove[3] - '1') * 8 + agbMove[2] - 'a';
+    uint32_t from = ((agbMove[1] - '1') << 3) + agbMove[0] - 'a';
+    uint32_t to = ((agbMove[3] - '1') << 3) + agbMove[2] - 'a';
     uint32_t flag = MOVE_QUIET;
 
     uint32_t distance = (to < from) ? from - to : to - from; // Distance between squares (always positive)
@@ -325,7 +319,7 @@ Move getMoveFromAlgebraic(Board* board, const char* agbMove) {
     if (pType - sideOffset == PAWN) {
         if (distance == 16) flag = MOVE_DOUBLE_PUSH; // Distance = 2 ranks -> double push
         if (to == board->epTarget) flag = MOVE_EP_CAPTURE; // TO square is ep target -> en passant
-        if (to / 8 == 7 || to / 8 == 0) { // Panw reached last rank
+        if ((to >> 3) == 7 || (to >> 3) == 0) { // Pawn reached last rank
             if (strlen(agbMove) < 5) {
                 fprintf(stderr, "getMoveFromAlgebraic() failed: Invalid promotion move length: %s\n", agbMove);
                 exit(1);
@@ -347,6 +341,28 @@ Move getMoveFromAlgebraic(Board* board, const char* agbMove) {
     if (pType - sideOffset == KING && distance == 2) flag = (to < from) ? MOVE_CASTLE_Q : MOVE_CASTLE_K; // King and distance = 2 -> castle
 
     return (Move) from | ((Move) to << 6) | ((Move) flag << 12);
+}
+
+const char* getAlgebraicFromMove(Move move, char* buffer, uint64_t size) {
+    if (size < 6) {
+        fprintf(stderr, "getAlgebraicFromMove() failed: Invalid move length!\n");
+        exit(1);
+    }
+    uint32_t from = moveFrom(move), to = moveTo(move), flag = moveFlag(move); // Unpack move data
+    buffer[0] = (char) (from & 7) + 'a';
+    buffer[1] = (char) (from >> 3) + '1';
+    buffer[2] = (char) (to & 7) + 'a';
+    buffer[3] = (char) (to >> 3) + '1';
+    if (flag >= MOVE_PROMO_CAPTURE_N) flag -= MOVE_PROMO_CAPTURE_OFF;
+    switch (flag) {
+        case MOVE_PROMO_N: buffer[4] = 'n'; break;
+        case MOVE_PROMO_B: buffer[4] = 'b'; break;
+        case MOVE_PROMO_R: buffer[4] = 'r'; break;
+        case MOVE_PROMO_Q: buffer[4] = 'q'; break;
+        default: break;
+    }
+    buffer[(flag >= MOVE_PROMO_N) ? 5 : 4] = '\0';
+    return (const char*) buffer;
 }
 
 // Compute merged bitboards (deprecated)
@@ -394,7 +410,7 @@ void setFen(Board* board, const char* fen) {
         }
 
         // Calculate necessary values
-        uint32_t square = rank * 8 + file;
+        uint32_t square = (rank << 3) + file;
         uint32_t offset = 0;
 
         char piece = fen[i];
@@ -445,7 +461,7 @@ void setFen(Board* board, const char* fen) {
         file = fen[i] - 'a';
         i += 1; if (i >= fenSize) return; // Increment and check for out of bounds pattern (avoids reading uninitialized memory)
         rank = fen[i] - '1';
-        board->epTarget = rank * 8 + file;
+        board->epTarget = (rank << 3) + file;
     }
     i += 2; if (i >= fenSize) return; // Increment and check for out of bounds pattern (avoids reading uninitialized memory)
 
@@ -474,18 +490,19 @@ void setFen(Board* board, const char* fen) {
 }
 
 // Sets the board to the specified FEN and then executes the given move array
-void setFenAndMoves(Board* board, const char* fen, const char** moves, uint32_t moveCount) {
+void setFenAndMoves(Board* board, const char* fen, const char** moves, uint64_t moveCount) {
     setFen(board, fen);
-    // TODO: implement move making and the rest of the function
+    PrevState placeholder;
+    for (uint64_t i = 0; i < moveCount; i += 1) makeMove(board, getMoveFromAlgebraic(board, moves[i]), &placeholder);
 }
 
 // Returns the FEN string representation of the board
-int32_t getFen(Board* board, char* fen, uint64_t fenSize) {
-    uint32_t i = 0; if (i >= fenSize) return 1;
+const char* getFen(Board* board, char* fen, uint64_t fenSize) {
+    uint32_t i = 0; if (i >= fenSize) return NULL;
     for (uint32_t rank = 8; rank > 0; rank--) {
         uint32_t empty = 0;
         for (uint32_t file = 0; file < 8; file += 1) {
-            uint32_t square = (rank - 1) * 8 + file;
+            uint32_t square = ((rank - 1) << 3) + file;
             char piece = ' ';
             if (board->mailbox[square] < NO_PIECE) { // Only if a piece is present
                 uint32_t pType = board->mailbox[square];
@@ -513,69 +530,69 @@ int32_t getFen(Board* board, char* fen, uint64_t fenSize) {
             if (empty > 0) {
                 fen[i] = empty + '0';
                 empty = 0;
-                i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+                i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
             }
 
             // Write the piece char
             fen[i] = piece;
-            i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+            i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
         }
 
         // Write the empty square count
         if (empty > 0) {
             fen[i] = empty + '0';
-            i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+            i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
         }
 
         // End of rank
         fen[i] = (rank == 1) ? ' ' : '/';
-        i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+        i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
     }
 
     // White = 0, Black = 1
     fen[i] = (board->sideToMove) ? 'b' : 'w';
-    i += 1; if (i >= fenSize) return 1; fen[i] = ' '; i += 1; if (i >= fenSize) return 1; // Go to next position in FEN with whitespace in between
+    i += 1; if (i >= fenSize) return NULL; fen[i] = ' '; i += 1; if (i >= fenSize) return NULL; // Go to next position in FEN with whitespace in between
 
     // Castle rights
     if (!board->castle) {
         fen[i] = '-';
-        i += 1; if (i >= fenSize) return 1; fen[i] = ' '; i += 1; if (i >= fenSize) return 1; // Go to next position in FEN with whitespace in between
+        i += 1; if (i >= fenSize) return NULL; fen[i] = ' '; i += 1; if (i >= fenSize) return NULL; // Go to next position in FEN with whitespace in between
     } else {
         if (board->castle & WHITE_KC) {
             fen[i] = 'K';
-            i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+            i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
         }
         if (board->castle & WHITE_QC) {
             fen[i] = 'Q';
-            i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+            i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
         }
         if (board->castle & BLACK_KC) {
             fen[i] = 'k';
-            i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+            i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
         }
         if (board->castle & BLACK_QC) {
             fen[i] = 'q';
-            i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+            i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
         }
-        fen[i] = ' '; i += 1; if (i >= fenSize) return 1; // Go to next position in FEN with whitespace in between
+        fen[i] = ' '; i += 1; if (i >= fenSize) return NULL; // Go to next position in FEN with whitespace in between
     }
 
     if (board->epTarget < NO_EP_TARGET) {
-        uint32_t rank = board->epTarget / 8, file = board->epTarget % 8;
+        uint32_t rank = board->epTarget >> 3, file = board->epTarget & 7;
         fen[i] = file + 'a';
-        i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+        i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
         fen[i] = rank + '1';
     } else {
         fen[i] = '-';
     }
-    i += 1; if (i >= fenSize) return 1; fen[i] = ' '; i += 1; if (i >= fenSize) return 1; // Go to next position in FEN with whitespace in between
+    i += 1; if (i >= fenSize) return NULL; fen[i] = ' '; i += 1; if (i >= fenSize) return NULL; // Go to next position in FEN with whitespace in between
 
     // Write the number of half moves into the FEN
     char buffer[64] = {};
     uint32_t x = board->halfMoves, bufferIdx = 0;
     if (x == 0) { // Edge case if x = 0, write directly to FEN
         fen[i] = '0';
-        i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+        i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
     } else {
         while (bufferIdx < 64 && x > 0) {
             buffer[bufferIdx] = x % 10 + '0';
@@ -585,10 +602,10 @@ int32_t getFen(Board* board, char* fen, uint64_t fenSize) {
         while (bufferIdx > 0) {
             bufferIdx -= 1;
             fen[i] = buffer[bufferIdx];
-            i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+            i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
         }
     }
-    fen[i] = ' '; i += 1; if (i >= fenSize) return 1; // Go to next position in FEN with whitespace in between
+    fen[i] = ' '; i += 1; if (i >= fenSize) return NULL; // Go to next position in FEN with whitespace in between
 
     // Write the number of full moves into the FEN
     for (uint32_t b = 0; b < 64; b += 1) {
@@ -598,7 +615,7 @@ int32_t getFen(Board* board, char* fen, uint64_t fenSize) {
     bufferIdx = 0;
     if (x == 0) { // Edge case if x = 0, write directly to FEN
         fen[i] = '0';
-        i += 1; if (i >= fenSize) return 1; // Check out of bounds pattern
+        i += 1; if (i >= fenSize) return NULL; // Check out of bounds pattern
     } else {
         while (bufferIdx < 64 && x > 0) {
             buffer[bufferIdx] = x % 10 + '0';
@@ -607,24 +624,24 @@ int32_t getFen(Board* board, char* fen, uint64_t fenSize) {
         }
         while (bufferIdx > 0) {
             bufferIdx -= 1;
-            if (i >= fenSize) return 1; // Check out of bounds pattern
+            if (i >= fenSize) return NULL; // Check out of bounds pattern
             fen[i] = buffer[bufferIdx];
             i += 1;
         }
     }
-    return 0;
+    return (const char*) fen;
 }
 
 // Returns the visual string representation of the given bitboard, ready to be printed to the console, or file or anything else
-int32_t getVisualBitboardString(uint64_t bitboard, char* str, uint64_t size) {
+const char* getVisualBitboardString(uint64_t bitboard, char* str, uint64_t size) {
     // Copy the visual template
-    if (size < strlen(boardVisualTemplate)) return 1;
+    if (size < strlen(boardVisualTemplate)) return NULL;
     memcpy(str, boardVisualTemplate, strlen(boardVisualTemplate));
 
     uint32_t vidx = 85; // First index of a square in the visual template
     for (uint32_t rank = 8; rank > 0; rank--) {
         for (uint32_t file = 0; file < 8; file += 1) {
-            uint32_t square = (rank - 1) * 8 + file;
+            uint32_t square = ((rank - 1) << 3) + file;
             char piece = ' ';
             if (bitboard & (1ull << square)) {
                 piece = '1';
@@ -634,19 +651,19 @@ int32_t getVisualBitboardString(uint64_t bitboard, char* str, uint64_t size) {
         }
         vidx += 48; // Rank offset from last file to first file in template visual
     }
-    return 0;
+    return (const char*) str;
 }
 
 // Returns the visual string representation of the board, ready to be printed to the console, or file or anything else
-int32_t getVisualBoardString(Board* board, char* str, uint64_t size) {
+const char* getVisualBoardString(Board* board, char* str, uint64_t size) {
     // Copy the visual template
-    if (size < strlen(boardVisualTemplate)) return 1;
+    if (size < strlen(boardVisualTemplate)) return NULL;
     memcpy(str, boardVisualTemplate, strlen(boardVisualTemplate));
 
     uint32_t vidx = 85; // First index of a square in the visual template
     for (uint32_t rank = 8; rank > 0; rank--) {
         for (uint32_t file = 0; file < 8; file += 1) {
-            uint32_t square = (rank - 1) * 8 + file;
+            uint32_t square = ((rank - 1) << 3) + file;
             char piece = ' ';
             uint32_t pType = board->mailbox[square];
             if (pType >= BLACK_OFFSET) {
@@ -669,5 +686,5 @@ int32_t getVisualBoardString(Board* board, char* str, uint64_t size) {
         }
         vidx += 48; // Rank offset from last file to first file in template visual
     }
-    return 0;
+    return (const char*) str;
 }

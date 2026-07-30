@@ -50,6 +50,8 @@ extern "C" {
 #define RANK_6 0b0000000000000000111111110000000000000000000000000000000000000000ull
 #define RANK_7 0b0000000011111111000000000000000000000000000000000000000000000000ull
 #define RANK_8 0b1111111100000000000000000000000000000000000000000000000000000000ull
+#define WHITE_DIAGONAL 0b0000000100000010000001000000100000010000001000000100000010000000ull
+#define BLACK_DIAGONAL 0b1000000001000000001000000001000000001000000001000000001000000001ull
 #define MOVE_FROM_MASK 0b0000000000111111u
 #define MOVE_TO_MASK   0b0000111111000000u
 #define MOVE_FLAG_MASK 0b1111000000000000u
@@ -109,7 +111,6 @@ extern const uint8_t castleRightsMask[64];
 extern const int32_t epCaptureOffset[2];
 
 // Utility
-uint32_t popLSB(uint64_t* bitboard);
 void placePiece(Board* board, uint32_t pType, uint32_t square);
 void removePiece(Board* board, uint32_t pType, uint32_t square);
 void movePiece(Board* board, uint32_t pType, uint32_t from, uint32_t to);
@@ -127,8 +128,9 @@ void destroyBoard(Board* board);
 void makeMove(Board* board, Move move, PrevState* state);
 void unmakeMove(Board* board, Move move, PrevState* state);
 
-// Convert algebraic notation to Move type
+// Convert algebraic notation to Move type and the other way around
 Move getMoveFromAlgebraic(Board* board, const char* agbMove);
+const char* getAlgebraicFromMove(Move move, char* buffer, uint64_t size);
 
 // Compute merged bitboards (deprecated)
 #if defined(_MSC_VER)
@@ -142,16 +144,16 @@ void computeBitboards(Board* board);
 void setFen(Board* board, const char* fen);
 
 // Sets the board to the specified FEN and then executes the given move array
-void setFenAndMoves(Board* board, const char* fen, const char** moves, uint32_t moveCount);
+void setFenAndMoves(Board* board, const char* fen, const char** moves, uint64_t moveCount);
 
 // Returns the FEN string representation of the board
-int32_t getFen(Board* board, char* fen, uint64_t size);
+const char* getFen(Board* board, char* fen, uint64_t size);
 
 // Returns the visual string representation of the given bitboard, ready to be printed to the console, or file or anything else
-int32_t getVisualBitboardString(uint64_t bitboard, char* str, uint64_t size);
+const char* getVisualBitboardString(uint64_t bitboard, char* str, uint64_t size);
 
 // Returns the visual string representation of the board, ready to be printed to the console, or file or anything else
-int32_t getVisualBoardString(Board* board, char* str, uint64_t size);
+const char* getVisualBoardString(Board* board, char* str, uint64_t size);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -37,16 +37,16 @@ uint64_t bishopAttacks[5248], * bishopTablePointers[64];
 uint64_t rookAttacks[102400], * rookTablePointers[64];
 
 // Utility
-static uint64_t getSlidingAttacks(uint32_t square, uint64_t occupancy, const int32_t* rankDirs, const int32_t* fileDirs, const uint32_t numDirs) {
+uint64_t getSlidingAttacks(uint32_t square, uint64_t occupancy, const int32_t* rankDirs, const int32_t* fileDirs, const uint32_t numDirs) {
     ASSERT(square < 64, "getSlidingAttacks() failed: Invalid square index.\n");
     uint64_t attacks = 0;
     for (uint32_t d = 0; d < numDirs; d += 1) {
-        int32_t rank = square / 8, file = square % 8;
+        int32_t rank = square >> 3, file = square & 7;
         for (;;) {
             rank += rankDirs[d];
             file += fileDirs[d];
             if (rank > 7 || rank < 0 || file > 7 || file < 0) break;
-            uint32_t reached = (uint32_t) (rank * 8 + file);
+            uint32_t reached = (uint32_t) ((rank << 3) + file);
             attacks |= (1ull << reached);
             if (occupancy & (1ull << reached)) break;
         }
@@ -121,18 +121,18 @@ void initAttackTables() {
 
         for (uint32_t rank = 0; rank < 8; rank += 1) {
             for (uint32_t file = 0; file < 8; file += 1) {
-                uint32_t square = rank * 8 + file;
+                uint32_t square = (rank << 3) + file;
                 for (uint32_t i = 0; i < 2; i += 1) {
                     int32_t offsetedRank = (int32_t) rank + rankOffsets[i];
                     int32_t offsetedFile = (int32_t) file + fileOffsets[i];
                     if (offsetedRank > 7 || offsetedRank < 0 || offsetedFile > 7 || offsetedFile < 0) continue;
-                    pawnAttacks[square] |= (1ull << (offsetedRank * 8 + offsetedFile));
+                    pawnAttacks[square] |= (1ull << ((offsetedRank << 3) + offsetedFile));
                 }
                 for (uint32_t i = 0; i < 2; i += 1) {
                     int32_t offsetedRank = (int32_t) rank - rankOffsets[i];
                     int32_t offsetedFile = (int32_t) file - fileOffsets[i];
                     if (offsetedRank > 7 || offsetedRank < 0 || offsetedFile > 7 || offsetedFile < 0) continue;
-                    pawnAttacks[square + 64] |= (1ull << (offsetedRank * 8 + offsetedFile));
+                    pawnAttacks[square + 64] |= (1ull << ((offsetedRank << 3) + offsetedFile));
                 }
             }
         }
@@ -144,12 +144,12 @@ void initAttackTables() {
 
         for (uint32_t rank = 0; rank < 8; rank += 1) {
             for (uint32_t file = 0; file < 8; file += 1) {
-                uint32_t square = rank * 8 + file;
+                uint32_t square = (rank << 3) + file;
                 for (uint32_t i = 0; i < 8; i += 1) {
                     int32_t offsetedRank = (int32_t) rank + rankOffsets[i];
                     int32_t offsetedFile = (int32_t) file + fileOffsets[i];
                     if (offsetedRank > 7 || offsetedRank < 0 || offsetedFile > 7 || offsetedFile < 0) continue;
-                    knightAttacks[square] |= (1ull << (offsetedRank * 8 + offsetedFile));
+                    knightAttacks[square] |= (1ull << ((offsetedRank << 3) + offsetedFile));
                 }
             }
         }
@@ -161,12 +161,12 @@ void initAttackTables() {
 
         for (uint32_t rank = 0; rank < 8; rank += 1) {
             for (uint32_t file = 0; file < 8; file += 1) {
-                uint32_t square = rank * 8 + file;
+                uint32_t square = (rank << 3) + file;
                 for (uint32_t i = 0; i < 8; i += 1) {
                     int32_t offsetedRank = (int32_t) rank + rankOffsets[i];
                     int32_t offsetedFile = (int32_t) file + fileOffsets[i];
                     if (offsetedRank > 7 || offsetedRank < 0 || offsetedFile > 7 || offsetedFile < 0) continue;
-                    kingAttacks[square] |= (1ull << (offsetedRank * 8 + offsetedFile));
+                    kingAttacks[square] |= (1ull << ((offsetedRank << 3) + offsetedFile));
                 }
             }
         }

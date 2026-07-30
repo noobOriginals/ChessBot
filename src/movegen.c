@@ -1,7 +1,45 @@
 #include "movegen.h"
 
+// Std includes
+#include <stdlib.h>
+#include <stdio.h>
+
 // Local includes
 #include "attacks.h"
+
+// Diagonals masks indexed by square for between() method
+uint64_t rayTable[4096];
+
+// Utility
+void initRayTable() {
+    for (uint32_t a = 0; a < 64; a += 1) {
+        for (uint32_t b = 0; b < 64; b += 1) {
+            int32_t ra = a >> 3, fa = a & 7, rb = b >> 3, fb = b & 7;
+            int32_t dr = rb - ra, df = fb - fa;
+            rayTable[a * 64 + b] = 0;
+            if ((dr < 2 && dr > -2) && (df < 2 && df > -2)) continue;
+            int32_t dir = 0;
+            if (dr == 0) dir = (df < 0) ? -1 : 1;
+            else if (df == 0) dir = (dr < 0) ? -8 : 8;
+            else if (dr == df) dir = (dr < 0) ? -9 : 9;
+            else if (dr == -df) dir = (dr < 0) ? -7 : 7;
+            else continue;
+            for (uint32_t s = a + dir; s != b; s += dir) rayTable[a * 64 + b] |= (1ull << s);
+        }
+    }
+}
+
+uint64_t between(uint64_t a, uint64_t b) {
+    if (!a || !b) return ~0b0ull;
+    return rayTable[ctzll(a) * 64 + ctzll(b)];
+}
+
+uint32_t popLSB(uint64_t* bitboard) {
+    uint32_t sq = ctzll(*bitboard);
+    *bitboard ^= (1ull << sq);
+    return sq;
+}
+
 
 uint64_t getCheckers(Board* board, uint32_t* count) {
     *count = 0;
@@ -10,6 +48,14 @@ uint64_t getCheckers(Board* board, uint32_t* count) {
     if (board->sideToMove) { myOff = BLACK_OFFSET; opOff = 0; }
 #if defined(USE_PER_PIECE_BITBOARDS)
     uint64_t att = board->sidePieces[board->sideToMove ^ 0b1];
+    while (att != 0) {
+        uint32_t sq = popLSB(&att);
+        if (getPieceAttacks(board->mailbox[sq], sq, board->occupancy)) {
+            checkers |= (1ull << sq);
+            *count += 1;
+            if (*count == 2) return checkers;
+        }
+    }
 #else
     for (uint32_t pType = opOff; pType < BLACK_OFFSET + opOff; pType += 1) {
         uint64_t piece = board->pieces[pType];
@@ -18,10 +64,87 @@ uint64_t getCheckers(Board* board, uint32_t* count) {
             if (getPieceAttacks(pType, sq, board->occupancy) & board->pieces[KING + myOff]) {
                 checkers |= (1ull << sq);
                 *count += 1;
+                if (*count == 2) return checkers;
             }
-            if (*count == 2) return checkers;
         }
     }
 #endif
     return checkers;
+}
+
+uint32_t unpackMovesBB(Board* board, uint32_t from, uint64_t movesbb, Move* moves, uint32_t begin) {
+    while (movesbb != 0) {
+        uint32_t to = popLSB(&movesbb);
+        uint32_t flag = MOVE_QUIET;
+
+        uint32_t distance = (to < from) ? from - to : to - from; // Distance between squares (always positive)
+        uint32_t sideOffset = board->sideToMove ? BLACK_OFFSET : 0; // Offset for handling different sides
+        uint32_t pType = board->mailbox[from]; // Piece type
+        uint32_t capType = board->mailbox[to]; // Capture type
+
+        if (capType != NO_PIECE) flag = MOVE_CAPTURE; // Standard piece captures
+
+        // In case of pawn
+        if (pType - sideOffset == PAWN) {
+            if (distance == 16) flag = MOVE_DOUBLE_PUSH; // Distance = 2 ranks -> double push
+            if (to == board->epTarget) flag = MOVE_EP_CAPTURE; // TO square is ep target -> en passant
+            if ((to >> 3) == 7 || (to >> 3) == 0) { // Pawn reached last rank
+                flag = MOVE_PROMO_N;
+                if (capType != NO_PIECE) flag += MOVE_PROMO_CAPTURE_OFF; // Capture promotion
+                for (uint32_t i = 0; i < 4; i += 1) {
+                    moves[begin] = (Move) from | ((Move) to << 6) | ((Move) flag << 12);
+                    begin += 1;
+                    flag += 1;
+                }
+                continue;
+            }
+        }
+
+        if (pType - sideOffset == KING && distance == 2) flag = (to < from) ? MOVE_CASTLE_Q : MOVE_CASTLE_K; // King and distance = 2 -> castle
+
+        moves[begin] = (Move) from | ((Move) to << 6) | ((Move) flag << 12);
+        begin += 1;
+    }
+    return begin;
+}
+
+// Movegen method
+Move* generateLegalMoves(Board* board, uint32_t* size) {
+    uint64_t checkers = 0, attacked = 0, kingbb = board->pieces[KING + (board->sideToMove ? BLACK_OFFSET : 0)];
+
+#if defined(USE_PER_PIECE_BITBOARDS)
+    uint64_t defenders = board->sidePieces[board->sideToMove], attackers = board->sidePieces[board->sideToMove ^ 0b1];
+#else
+    uint64_t defenders = 0, attackers = 0;
+    for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb += 1) {
+        if ((bb >= BLACK_OFFSET) == board->sideToMove) {
+            defenders |= board->pieces[bb];
+        } else {
+            attackers |= board->pieces[bb];
+        }
+    }
+#endif
+
+    // Go thrugh each bit of attackers to compute both attacked squares and checkers
+    uint64_t attackersCopy = attackers;
+    while (attackersCopy != 0) {
+        uint32_t sq = popLSB(&attackersCopy);
+        uint32_t attacks = getPieceAttacks(board->mailbox[sq], sq, board->occupancy & ~kingbb);
+        attacked |= attacks;
+        if (attacks & kingbb) checkers |= (1ull << sq);
+    }
+
+    // If double check
+    if (popcountll(checkers) == 2) {
+        uint32_t kingsq = ctzll(kingbb);
+        uint64_t legal = getKingAttacks(kingsq) & ~defenders & ~attacked;
+        *size = popcountll(legal);
+        if (!*size) return NULL;
+        Move* moves = (Move*) calloc(*size, sizeof(Move));
+        unpackMovesBB(board, kingsq, legal, moves, 0);
+        return moves;
+    }
+
+    uint64_t target = between(checkers, kingbb) | checkers;
+    return NULL;
 }

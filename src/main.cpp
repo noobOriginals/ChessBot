@@ -4,33 +4,29 @@
 
 #include "board.h"
 #include "attacks.h"
+#include "movegen.h"
 
 #define TEST_FEN_1 "r1bqk2r/pppp1ppp/2n2n2/1Bb1p3/4P3/3P1N2/PPP2PPP/RNBQ1RK1 b kq - 0 5"
 
 void displayBoard(Board* board) {
     char buffer[1024] = {};
-    getVisualBoardString(board, buffer, 1024);
-    std::cout << buffer;
+    std::cout << getVisualBoardString(board, buffer, 1024);
 }
 
 void displayBoardFen(Board* board) {
     char buffer[1024] = {};
-    getFen(board, buffer, 1024);
-    std::cout << buffer << "\n";
+    std::cout << getFen(board, buffer, 1024) << "\n";
 }
 
 void displayBitboard(uint64_t bitboard) {
     char buffer[1024] = {};
-    getVisualBitboardString(bitboard, buffer, 1024);
-    std::cout << buffer;
+    std::cout << getVisualBitboardString(bitboard, buffer, 1024);
 }
 
 int32_t assertPositions(uint64_t actual, uint64_t expected) {
     if (actual != expected) {
-        char expectedBuffer[1024] = {}, actualBuffer[1024] = {};
-        getVisualBitboardString(expected, expectedBuffer, 1024);
-        getVisualBitboardString(actual, actualBuffer, 1024);
-        printf("Position assert failed!\n.Expected: %s\nActual: %s\n", expectedBuffer, actualBuffer);
+        char buffer[1024] = {};
+        printf("Position assert failed!\n.Expected: %s\nActual: %s\n", getVisualBitboardString(expected, buffer, 1024), getVisualBitboardString(actual, buffer, 1024));
         return 0;
     }
     return 1;
@@ -150,8 +146,8 @@ void minigame() {
                     case 'w': displayBitboard(getPawnPushes(BLACK, board->pieces[6], board->occupancy)); break;
                     case 'X': displayBitboard(getPawnDoublePushes(WHITE, board->pieces[0], board->occupancy)); break;
                     case 'x': displayBitboard(getPawnDoublePushes(BLACK, board->pieces[6], board->occupancy)); break;
-                    case 'S': displayBitboard(board->sidePieces[WHITE]); break;
-                    case 's': displayBitboard(board->sidePieces[BLACK]); break;
+                    // case 'S': displayBitboard(board->sidePieces[WHITE]); break;
+                    // case 's': displayBitboard(board->sidePieces[BLACK]); break;
                     default: break;
                 }
             }
@@ -174,22 +170,27 @@ void minigame() {
     destroyBoard(board);
 }
 
+void printMoves(Move* moves, uint32_t size) {
+    if (!moves) return;
+    char buffer[64] = {};
+    printf("All legal moves: ");
+    for (uint32_t i = 0; i < size - 1; i++) {
+        printf("%s, ", getAlgebraicFromMove(moves[i], buffer, 64));
+    }
+    printf("%s\n", getAlgebraicFromMove(moves[size - 1], buffer, 64));
+}
+
 int main() {
     initAttackTables();
+    initRayTable();
 
     Board* board = createBoard();
     setFen(board, "r1b1kbnr/pp1p1ppp/2p5/q3p1P1/4P3/3n1N2/PPP2P1P/RNBQKB1R w KQkq - 0 7");
+    displayBoard(board);
 
-    uint64_t checkers = 0;
-    uint64_t opp = board->sidePieces[board->sideToMove ^ 0b1];
-    while (opp != 0) {
-        uint32_t sq = ctzll(opp);
-        uint64_t attacks = getPieceAttacks(board->mailbox[sq], sq, board->occupancy);
-        if (attacks & board->pieces[KING + BLACK_OFFSET * board->sideToMove]) checkers |= (1ull << sq);
-        opp ^= (1ull << sq);
-    }
-
-    displayBitboard(checkers);
+    uint32_t size;
+    Move* moves = generateLegalMoves(board, &size);
+    printMoves(moves, size);
 
     destroyBoard(board);
     return 0;
