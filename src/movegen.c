@@ -40,38 +40,6 @@ uint32_t popLSB(uint64_t* bitboard) {
     return sq;
 }
 
-
-uint64_t getCheckers(Board* board, uint32_t* count) {
-    *count = 0;
-    uint64_t checkers = 0;
-    uint32_t myOff = 0, opOff = BLACK_OFFSET;
-    if (board->sideToMove) { myOff = BLACK_OFFSET; opOff = 0; }
-#if defined(USE_PER_PIECE_BITBOARDS)
-    uint64_t att = board->sidePieces[board->sideToMove ^ 0b1];
-    while (att != 0) {
-        uint32_t sq = popLSB(&att);
-        if (getPieceAttacks(board->mailbox[sq], sq, board->occupancy)) {
-            checkers |= (1ull << sq);
-            *count += 1;
-            if (*count == 2) return checkers;
-        }
-    }
-#else
-    for (uint32_t pType = opOff; pType < BLACK_OFFSET + opOff; pType += 1) {
-        uint64_t piece = board->pieces[pType];
-        while (piece != 0) {
-            uint32_t sq = popLSB(&piece);
-            if (getPieceAttacks(pType, sq, board->occupancy) & board->pieces[KING + myOff]) {
-                checkers |= (1ull << sq);
-                *count += 1;
-                if (*count == 2) return checkers;
-            }
-        }
-    }
-#endif
-    return checkers;
-}
-
 uint32_t unpackMovesBB(Board* board, uint32_t from, uint64_t movesbb, Move* moves, uint32_t begin) {
     while (movesbb != 0) {
         uint32_t to = popLSB(&movesbb);

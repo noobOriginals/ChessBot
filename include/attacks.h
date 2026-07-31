@@ -8,6 +8,15 @@
 extern "C" {
 #endif
 
+#if !defined(NDEBUG)
+    typedef void(*ErrorHandle)(void);
+    extern ErrorHandle assertHandle;
+
+    extern uint32_t global_getPieceAttacks_pieceType;
+    extern uint32_t global_getPieceAttacks_square;
+    extern uint64_t global_getPieceAttacks_occupancy;
+#endif
+
 // Constants
 extern const uint64_t bishopMagics[64];
 extern const uint64_t rookMagics[64];

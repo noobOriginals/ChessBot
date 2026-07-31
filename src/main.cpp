@@ -112,6 +112,44 @@ void printMoves(Move* moves, uint32_t size) {
         printf("%s, ", getAlgebraicFromMove(moves[i], buffer, 64));
     }
     printf("%s\n", getAlgebraicFromMove(moves[size - 1], buffer, 64));
+    printf("Move flags: ");
+    for (uint32_t i = 0; i < size - 1; i++) {
+        switch (moveFlag(moves[i])) {
+            case MOVE_QUIET: printf("MOVE_QUIET, "); break;
+            case MOVE_DOUBLE_PUSH: printf("MOVE_DOUBLE_PUSH, "); break;
+            case MOVE_CASTLE_K: printf("MOVE_CASTLE_K, "); break;
+            case MOVE_CASTLE_Q: printf("MOVE_CASTLE_Q, "); break;
+            case MOVE_CAPTURE: printf("MOVE_CAPTURE, "); break;
+            case MOVE_EP_CAPTURE: printf("MOVE_EP_CAPTURE, "); break;
+            case MOVE_PROMO_N: printf("MOVE_PROMO_N, "); break;
+            case MOVE_PROMO_B: printf("MOVE_PROMO_B, "); break;
+            case MOVE_PROMO_R: printf("MOVE_PROMO_R, "); break;
+            case MOVE_PROMO_Q: printf("MOVE_PROMO_Q, "); break;
+            case MOVE_PROMO_CAPTURE_N: printf("MOVE_PROMO_CAPTURE_N, "); break;
+            case MOVE_PROMO_CAPTURE_B: printf("MOVE_PROMO_CAPTURE_B, "); break;
+            case MOVE_PROMO_CAPTURE_R: printf("MOVE_PROMO_CAPTURE_R, "); break;
+            case MOVE_PROMO_CAPTURE_Q: printf("MOVE_PROMO_CAPTURE_Q, "); break;
+            default: printf("UNKNOWN, "); break;
+        }
+    }
+    switch (moveFlag(moves[size - 1])) {
+        case MOVE_QUIET: printf("MOVE_QUIET"); break;
+        case MOVE_DOUBLE_PUSH: printf("MOVE_DOUBLE_PUSH"); break;
+        case MOVE_CASTLE_K: printf("MOVE_CASTLE_K"); break;
+        case MOVE_CASTLE_Q: printf("MOVE_CASTLE_Q"); break;
+        case MOVE_CAPTURE: printf("MOVE_CAPTURE"); break;
+        case MOVE_EP_CAPTURE: printf("MOVE_EP_CAPTURE"); break;
+        case MOVE_PROMO_N: printf("MOVE_PROMO_N"); break;
+        case MOVE_PROMO_B: printf("MOVE_PROMO_B"); break;
+        case MOVE_PROMO_R: printf("MOVE_PROMO_R"); break;
+        case MOVE_PROMO_Q: printf("MOVE_PROMO_Q"); break;
+        case MOVE_PROMO_CAPTURE_N: printf("MOVE_PROMO_CAPTURE_N"); break;
+        case MOVE_PROMO_CAPTURE_B: printf("MOVE_PROMO_CAPTURE_B"); break;
+        case MOVE_PROMO_CAPTURE_R: printf("MOVE_PROMO_CAPTURE_R"); break;
+        case MOVE_PROMO_CAPTURE_Q: printf("MOVE_PROMO_CAPTURE_Q"); break;
+        default: printf("UNKNOWN"); break;
+    }
+    printf("\n");
 }
 
 int32_t findMove(Move* moves, uint32_t b, uint32_t e, Move move) {
@@ -202,9 +240,98 @@ void minigame() {
     destroyBoard(board);
 }
 
+int32_t testBoardStruct(Board* board) {
+    uint32_t actualMailbox[64] = {};
+    for (uint32_t i = 0; i < 64; i++) actualMailbox[i] = NO_PIECE;
+    for (uint32_t bb = 0; bb < TOTAL_PIECE_TYPES; bb++) {
+        uint64_t bitboard = board->pieces[bb];
+        while (bitboard != 0) {
+            uint32_t sq = popLSB(&bitboard);
+            actualMailbox[sq] = bb;
+        }
+    }
+    for (uint32_t i = 0; i < 64; i++) {
+        if (actualMailbox[i] != board->mailbox[i]) {
+            fprintf(stderr, "Mailbox mismatch!\n");
+            Board* actual = createDefaultBoard();
+            for (uint32_t s = 0; s < 64; s++) actual->mailbox[s] = actualMailbox[s];
+            std::cerr << "Expected:\n";
+            displayBoard(actual);
+            std::cerr << "\nGot:\n";
+            displayBoard(board);
+            destroyBoard(actual);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+uint32_t memSize = 0;
+Move memMoves[100];
+Board* memBoard;
+
+void memDump() {
+    std::cout << "\n\n--- DEBUG INFO ---\n";
+    printMoves(memMoves, memSize);
+    displayBoard(memBoard);
+    displayBitboard(memBoard->occupancy);
+    // displayBitboard(memBoard->pieces[PAWN]);
+    // displayBitboard(memBoard->pieces[PAWN + BLACK_OFFSET]);
+    std::cout << "\n";
+    std::cout << "global_getPieceAttacks_pieceType: " << global_getPieceAttacks_pieceType << "\n";
+    std::cout << "global_getPieceAttacks_square: " << global_getPieceAttacks_square << "\n";
+    std::cout << "global_getPieceAttacks_occupancy:\n";
+    displayBitboard(global_getPieceAttacks_occupancy);
+    std::cout << "--- DEBUG INFO ---\n\n";
+}
+
+uint64_t perft(Board* board, uint32_t depth) {
+    if (depth == 0) return 1;
+    uint64_t nodes = 0;
+    uint32_t size = 0;
+    Move* moves = generateLegalMoves(board, &size);
+    for (uint32_t i = 0; i < size; i++) {
+        PrevState state;
+        makeMove(board, moves[i], &state);
+        memMoves[memSize - depth] = moves[i];
+        memBoard = board;
+        if (testBoardStruct(board)) {
+            std::cerr << "perft() failed after makeMove() at depth " << depth << ", move index " << memSize - depth << "\n";
+            memDump();
+            exit(1);
+        }
+        nodes += perft(board, depth - 1);
+        unmakeMove(board, moves[i], &state);
+        if (testBoardStruct(board)) {
+            std::cerr << "perft() failed after unmakeMove() at depth " << depth << ", move index " << memSize - depth << "\n";
+            memDump();
+            exit(1);
+        }
+    }
+    free(moves);
+    return nodes;
+}
+
+void testPos(const char* fen, uint32_t depth) {
+    Board* board = createBoard();
+    setFen(board, fen);
+    memSize = depth;
+    auto start = std::chrono::high_resolution_clock::now();
+    uint64_t nodes = perft(board, depth);
+    auto end = std::chrono::high_resolution_clock::now();
+    double seconds = std::chrono::duration<double>(end - start).count();
+    std::cout << "Psition: " << fen << "\n";
+    std::cout << "Depth:   " << depth << "\n";
+    std::cout << "Nodes:   " << nodes << "\n";
+    std::cout << "Time:    " << seconds << "s\n";
+    std::cout << "NPS:     " << nodes / seconds << "\n";
+    destroyBoard(board);
+}
+
 int main() {
     initAttackTables();
     initRayTable();
-    minigame();
+    assertHandle = memDump;
+    testPos(STARTPOS_FEN, 7);
     return 0;
 }

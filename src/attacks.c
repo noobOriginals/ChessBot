@@ -10,7 +10,12 @@
 // Debug-only (faster in release mode)
 #if !defined(NDEBUG)
     #include <assert.h>
-    #define ASSERT(cond, msg) if (!(cond)) { fprintf(stderr, msg); assert(cond); exit(1); }
+    ErrorHandle assertHandle;
+    #define ASSERT(cond, msg) if (!(cond)) { fprintf(stderr, msg); assertHandle(); assert(cond); }
+
+    uint32_t global_getPieceAttacks_pieceType;
+    uint32_t global_getPieceAttacks_square;
+    uint64_t global_getPieceAttacks_occupancy;
 #else
     #define ASSERT(cond, msg)
 #endif
@@ -286,8 +291,14 @@ uint64_t getKingAttacks(uint32_t square) {
 }
 
 uint64_t getPieceAttacks(uint32_t pieceType, uint32_t square, uint64_t occupancy) {
+#if !defined(NDEBUG)
+    global_getPieceAttacks_pieceType = pieceType;
+    global_getPieceAttacks_square = square;
+    global_getPieceAttacks_occupancy = occupancy;
     ASSERT(pieceType < TOTAL_PIECE_TYPES, "getPieceAttacks() failed: Invalid piece type!\n");
     ASSERT(square < 64, "getPieceAttacks() failed: Invalid square index!\n");
+#endif
+
     uint32_t color = WHITE;
     if (pieceType >= BLACK_OFFSET) {
         color = BLACK;
