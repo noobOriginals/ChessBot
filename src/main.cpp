@@ -8,6 +8,7 @@
 
 #define TEST_FEN_1 "r1bqk2r/pppp1ppp/2n2n2/1Bb1p3/4P3/3P1N2/PPP2PPP/RNBQ1RK1 b kq - 0 5"
 #define TEST_FEN_2 "r1bqkbnr/ppp2ppp/2np4/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 2 4" // startpos e2e4 e7e5 f1c4 d7d6 d1h5 b8c6 go
+#define TEST_FEN_3 "r3k2r/pppbqppp/2np1n2/2b1p1B1/2B1P3/2NP1N2/PPP1QPPP/R3K2R w KQkq - 2 8"
 
 #define MAX_DEPTH 255
 // #define PERFT_TEST_BOARD_STRUCT
@@ -171,7 +172,7 @@ void minigame() {
     std::string input;
     std::cout << "Enter initial board state: ";
     std::cin >> input;
-    if (input == "startpos") setFen(board, STARTPOS_FEN);
+    if (input == "startpos") setFen(board, TEST_FEN_3);
     else setFen(board, input.c_str());
     std::cin >> input;
     while (input != "go") {
@@ -323,10 +324,13 @@ uint64_t perft(Board* board, uint32_t depth) {
     return nodes;
 }
 
-void testPos(const char* fen, uint32_t maxDepth) {
+void testPos(const char* name, const char* fen, uint32_t maxDepth) {
     Board* board = createBoard();
     setFen(board, fen);
-    for (uint32_t depth = 0; depth <= maxDepth; depth++) {
+    std::cout << name << " ";
+    uint64_t totalNodes = 0;
+    double totalMilli = 0.0;
+    for (uint32_t depth = 1; depth <= maxDepth; depth++) {
     #if defined(PERFT_USE_MEM_DUMP)
         memSize = depth;
     #endif
@@ -334,12 +338,12 @@ void testPos(const char* fen, uint32_t maxDepth) {
         uint64_t nodes = perft(board, depth);
         auto end = std::chrono::high_resolution_clock::now();
         double milli = std::chrono::duration<double, std::milli>(end - start).count();
-        std::cout << "Position: " << fen << "\n";
-        std::cout << "Depth:   " << depth << "\n";
-        std::cout << "Nodes:   " << nodes << "\n";
-        std::cout << "Time:    " << milli << " ms\n";
-        std::cout << "NPS:     " << (uint64_t) (nodes / (milli / 1000)) << " nodes/s\n\n";
+        std::cout << nodes << " ";
+        totalMilli += milli;
+        totalNodes += nodes;
     }
+    std::cout << " --- " << totalMilli << "ms, ";
+    std::cout << (uint64_t) (totalNodes / (totalMilli / 1000.0)) << "nodes/s\n";
     destroyBoard(board);
 }
 
@@ -349,6 +353,8 @@ int main() {
 #if defined(PERFT_USE_MEM_DUMP)
     assertHandle = memDump;
 #endif
-    testPos(STARTPOS_FEN, 7);
+    testPos("Pos 1", STARTPOS_FEN, 7);
+    testPos("Pos 2", "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 5);
+    testPos("Pos 3", "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1", 6);
     return 0;
 }
