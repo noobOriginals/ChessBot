@@ -7,6 +7,7 @@
 #include "movegen.h"
 
 #define TEST_FEN_1 "r1bqk2r/pppp1ppp/2n2n2/1Bb1p3/4P3/3P1N2/PPP2PPP/RNBQ1RK1 b kq - 0 5"
+#define TEST_FEN_2 "r1bqkbnr/ppp2ppp/2np4/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 2 4" // startpos e2e4 e7e5 f1c4 d7d6 d1h5 b8c6 go
 
 void displayBoard(Board* board) {
     char buffer[1024] = {};
@@ -103,6 +104,23 @@ void testMagicBitboardsVsSlowVersion() {
     std::cout << "Took " << elapsed.count() / 1000.0f << " seconds\n";
 }
 
+void printMoves(Move* moves, uint32_t size) {
+    if (!moves) return;
+    char buffer[64] = {};
+    printf("All legal moves: ");
+    for (uint32_t i = 0; i < size - 1; i++) {
+        printf("%s, ", getAlgebraicFromMove(moves[i], buffer, 64));
+    }
+    printf("%s\n", getAlgebraicFromMove(moves[size - 1], buffer, 64));
+}
+
+int32_t findMove(Move* moves, uint32_t b, uint32_t e, Move move) {
+    for (uint32_t i = b; i <= e; i++) {
+        if (moves[i] == move) return i;
+    }
+    return -1;
+}
+
 void minigame() {
     Board* board = createBoard();
     Move moves[1024];
@@ -120,9 +138,17 @@ void minigame() {
         prevIdx++;
         std::cin >> input;
     }
+    Move* legalMoves = NULL;
     while (true) {
+        if (legalMoves) {
+            free(legalMoves);
+            legalMoves = NULL;
+        }
         displayBoard(board);
         displayBoardFen(board);
+        uint32_t size = 0;
+        legalMoves = generateLegalMoves(board, &size);
+        printMoves(legalMoves, size);
         std::cout << "\nEnter move: ";
         std::cin >> input;
         if (input == "quit") break;
@@ -146,8 +172,10 @@ void minigame() {
                     case 'w': displayBitboard(getPawnPushes(BLACK, board->pieces[6], board->occupancy)); break;
                     case 'X': displayBitboard(getPawnDoublePushes(WHITE, board->pieces[0], board->occupancy)); break;
                     case 'x': displayBitboard(getPawnDoublePushes(BLACK, board->pieces[6], board->occupancy)); break;
-                    // case 'S': displayBitboard(board->sidePieces[WHITE]); break;
-                    // case 's': displayBitboard(board->sidePieces[BLACK]); break;
+                #if defined(USE_PER_PIECE_BITBOARDS)
+                    case 'S': displayBitboard(board->sidePieces[WHITE]); break;
+                    case 's': displayBitboard(board->sidePieces[BLACK]); break;
+                #endif
                     default: break;
                 }
             }
@@ -163,6 +191,10 @@ void minigame() {
             prevIdx++;
         } else {
             moves[prevIdx] = getMoveFromAlgebraic(board, input.c_str());
+            if (findMove(legalMoves, 0, size - 1, moves[prevIdx]) == -1) {
+                printf("Illegal move, try again.\n");
+                continue;
+            }
             makeMove(board, moves[prevIdx], &prevState[prevIdx]);
             prevIdx++;
         }
@@ -170,28 +202,9 @@ void minigame() {
     destroyBoard(board);
 }
 
-void printMoves(Move* moves, uint32_t size) {
-    if (!moves) return;
-    char buffer[64] = {};
-    printf("All legal moves: ");
-    for (uint32_t i = 0; i < size - 1; i++) {
-        printf("%s, ", getAlgebraicFromMove(moves[i], buffer, 64));
-    }
-    printf("%s\n", getAlgebraicFromMove(moves[size - 1], buffer, 64));
-}
-
 int main() {
     initAttackTables();
     initRayTable();
-
-    Board* board = createBoard();
-    setFen(board, "r1b1kbnr/pp1p1ppp/2p5/q3p1P1/4P3/3n1N2/PPP2P1P/RNBQKB1R w KQkq - 0 7");
-    displayBoard(board);
-
-    uint32_t size;
-    Move* moves = generateLegalMoves(board, &size);
-    printMoves(moves, size);
-
-    destroyBoard(board);
+    minigame();
     return 0;
 }

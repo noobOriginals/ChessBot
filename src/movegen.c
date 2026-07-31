@@ -110,7 +110,8 @@ uint32_t unpackMovesBB(Board* board, uint32_t from, uint64_t movesbb, Move* move
 
 // Movegen method
 Move* generateLegalMoves(Board* board, uint32_t* size) {
-    uint64_t checkers = 0, attacked = 0, kingbb = board->pieces[KING + (board->sideToMove ? BLACK_OFFSET : 0)];
+    uint32_t myOff = (board->sideToMove ? BLACK_OFFSET : 0);
+    uint64_t checkers = 0, attacked = 0, kingbb = board->pieces[KING + myOff];
 
 #if defined(USE_PER_PIECE_BITBOARDS)
     uint64_t defenders = board->sidePieces[board->sideToMove], attackers = board->sidePieces[board->sideToMove ^ 0b1];
@@ -129,7 +130,7 @@ Move* generateLegalMoves(Board* board, uint32_t* size) {
     uint64_t attackersCopy = attackers;
     while (attackersCopy != 0) {
         uint32_t sq = popLSB(&attackersCopy);
-        uint32_t attacks = getPieceAttacks(board->mailbox[sq], sq, board->occupancy & ~kingbb);
+        uint64_t attacks = getPieceAttacks(board->mailbox[sq], sq, board->occupancy & ~kingbb);
         attacked |= attacks;
         if (attacks & kingbb) checkers |= (1ull << sq);
     }
@@ -145,6 +146,36 @@ Move* generateLegalMoves(Board* board, uint32_t* size) {
         return moves;
     }
 
+    *size = 0;
+    Move moves[MAX_LEGAL_MOVES] = {};
     uint64_t target = between(checkers, kingbb) | checkers;
-    return NULL;
+    uint64_t defendersCopy = defenders;
+    while (defendersCopy != 0) {
+        uint32_t sq = popLSB(&defendersCopy);
+        uint64_t legal = ~defenders;
+        switch (board->mailbox[sq] - myOff) {
+            case PAWN: legal &= getPawnAttacks(board->sideToMove, sq) & attackers & target; break;
+            case KNIGHT: legal &= getKnightAttacks(sq) & target; break;
+            case BISHOP: legal &= getBishopAttacks(sq, board->occupancy) & target; break;
+            case ROOK: legal &= getRookAttacks(sq, board->occupancy) & target; break;
+            case QUEEN: legal &= getQueenAttacks(sq, board->occupancy) & target; break;
+            case KING: legal &= getKingAttacks(sq) & ~attacked; break;
+        }
+        *size = unpackMovesBB(board, sq, legal, moves, *size);
+    }
+
+    uint64_t singlePush = getPawnPushes(board->sideToMove, board->pieces[myOff], board->occupancy);
+    uint64_t doublePush = getPawnPushes(board->sideToMove, singlePush & (board->sideToMove ? RANK_6 : RANK_3), board->occupancy);
+    uint64_t pawnbb = board->pieces[myOff];
+    while (pawnbb != 0) {
+        uint32_t sq = popLSB(&pawnbb);
+        uint64_t mask = target & (FILE_A << (sq & 7));
+        *size = unpackMovesBB(board, sq, singlePush & mask, moves, *size);
+        *size = unpackMovesBB(board, sq, doublePush & mask, moves, *size);
+    }
+
+    if (!*size) return NULL;
+    Move* final = (Move*) calloc(*size, sizeof(Move));
+    for (uint32_t i = 0; i < *size; i += 1) final[i] = moves[i];
+    return final;
 }
