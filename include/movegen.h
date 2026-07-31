@@ -24,10 +24,11 @@ extern uint64_t rayTable[4096];
 void initRayTable();
 uint64_t between(uint64_t a, uint64_t b);
 uint32_t popLSB(uint64_t* bitboard);
-uint32_t unpackMovesBB(Board* board, uint32_t from, uint64_t movesbb, Move* moves, uint32_t begin);
+uint32_t unpackAttacksBB(Board* board, uint32_t from, uint64_t movesbb, Move* moves, uint32_t begin);
+uint32_t unpackPawnPushesBB(uint64_t movesbb, int32_t offset, uint32_t flag, Move* moves, uint32_t begin);
 
 // Movegen method
-Move* generateLegalMoves(Board* board, uint32_t* size);
+Move* generateLegalMoves(Board* board, Move* moves, uint32_t* size);
 
 #ifdef __cplusplus
 } // extern "C"

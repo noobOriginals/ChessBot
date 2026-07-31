@@ -9,6 +9,10 @@
 #define TEST_FEN_1 "r1bqk2r/pppp1ppp/2n2n2/1Bb1p3/4P3/3P1N2/PPP2PPP/RNBQ1RK1 b kq - 0 5"
 #define TEST_FEN_2 "r1bqkbnr/ppp2ppp/2np4/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 2 4" // startpos e2e4 e7e5 f1c4 d7d6 d1h5 b8c6 go
 
+#define MAX_DEPTH 255
+// #define PERFT_TEST_BOARD_STRUCT
+// #define PERFT_USE_MEM_DUMP
+
 void displayBoard(Board* board) {
     char buffer[1024] = {};
     std::cout << getVisualBoardString(board, buffer, 1024);
@@ -161,7 +165,7 @@ int32_t findMove(Move* moves, uint32_t b, uint32_t e, Move move) {
 
 void minigame() {
     Board* board = createBoard();
-    Move moves[1024];
+    Move moves[1024], legalMoves[MAX_LEGAL_MOVES];
     PrevState prevState[1024];
     uint32_t prevIdx = 0;
     std::string input;
@@ -176,16 +180,11 @@ void minigame() {
         prevIdx++;
         std::cin >> input;
     }
-    Move* legalMoves = NULL;
     while (true) {
-        if (legalMoves) {
-            free(legalMoves);
-            legalMoves = NULL;
-        }
         displayBoard(board);
         displayBoardFen(board);
         uint32_t size = 0;
-        legalMoves = generateLegalMoves(board, &size);
+        generateLegalMoves(board, legalMoves, &size);
         printMoves(legalMoves, size);
         std::cout << "\nEnter move: ";
         std::cin >> input;
@@ -266,72 +265,90 @@ int32_t testBoardStruct(Board* board) {
     return 0;
 }
 
-uint32_t memSize = 0;
-Move memMoves[100];
-Board* memBoard;
+#if defined(PERFT_USE_MEM_DUMP)
+    uint32_t memSize = 0;
+    Move memMoves[100];
+    Board* memBoard;
+    void memDump() {
+        std::cout << "\n\n--- DEBUG INFO ---\n";
+        printMoves(memMoves, memSize);
+        displayBoard(memBoard);
+        displayBitboard(memBoard->occupancy);
+        displayBitboard(memBoard->pieces[PAWN]);
+        displayBitboard(memBoard->pieces[PAWN + BLACK_OFFSET]);
+        std::cout << "\n";
+        std::cout << "global_getPieceAttacks_pieceType: " << global_getPieceAttacks_pieceType << "\n";
+        std::cout << "global_getPieceAttacks_square: " << global_getPieceAttacks_square << "\n";
+        std::cout << "global_getPieceAttacks_occupancy:\n";
+        displayBitboard(global_getPieceAttacks_occupancy);
+        std::cout << "--- DEBUG INFO ---\n\n";
+    }
+#endif
 
-void memDump() {
-    std::cout << "\n\n--- DEBUG INFO ---\n";
-    printMoves(memMoves, memSize);
-    displayBoard(memBoard);
-    displayBitboard(memBoard->occupancy);
-    // displayBitboard(memBoard->pieces[PAWN]);
-    // displayBitboard(memBoard->pieces[PAWN + BLACK_OFFSET]);
-    std::cout << "\n";
-    std::cout << "global_getPieceAttacks_pieceType: " << global_getPieceAttacks_pieceType << "\n";
-    std::cout << "global_getPieceAttacks_square: " << global_getPieceAttacks_square << "\n";
-    std::cout << "global_getPieceAttacks_occupancy:\n";
-    displayBitboard(global_getPieceAttacks_occupancy);
-    std::cout << "--- DEBUG INFO ---\n\n";
-}
+Move legalMovesBuffer[MAX_DEPTH][MAX_LEGAL_MOVES];
 
 uint64_t perft(Board* board, uint32_t depth) {
     if (depth == 0) return 1;
     uint64_t nodes = 0;
     uint32_t size = 0;
-    Move* moves = generateLegalMoves(board, &size);
+    generateLegalMoves(board, legalMovesBuffer[depth], &size);
     for (uint32_t i = 0; i < size; i++) {
         PrevState state;
-        makeMove(board, moves[i], &state);
-        memMoves[memSize - depth] = moves[i];
+        makeMove(board, legalMovesBuffer[depth][i], &state);
+
+    #if defined(PERFT_USE_MEM_DUMP)
+        memMoves[memSize - depth] = legalMovesBuffer[depth][i];
         memBoard = board;
+    #endif
+
+    #if defined(PERFT_TEST_BOARD_STRUCT)
         if (testBoardStruct(board)) {
             std::cerr << "perft() failed after makeMove() at depth " << depth << ", move index " << memSize - depth << "\n";
             memDump();
             exit(1);
         }
+    #endif
+
         nodes += perft(board, depth - 1);
-        unmakeMove(board, moves[i], &state);
+        unmakeMove(board, legalMovesBuffer[depth][i], &state);
+
+    #if defined(PERFT_TEST_BOARD_STRUCT)
         if (testBoardStruct(board)) {
             std::cerr << "perft() failed after unmakeMove() at depth " << depth << ", move index " << memSize - depth << "\n";
             memDump();
             exit(1);
         }
+    #endif
     }
-    free(moves);
     return nodes;
 }
 
-void testPos(const char* fen, uint32_t depth) {
+void testPos(const char* fen, uint32_t maxDepth) {
     Board* board = createBoard();
     setFen(board, fen);
-    memSize = depth;
-    auto start = std::chrono::high_resolution_clock::now();
-    uint64_t nodes = perft(board, depth);
-    auto end = std::chrono::high_resolution_clock::now();
-    double seconds = std::chrono::duration<double>(end - start).count();
-    std::cout << "Psition: " << fen << "\n";
-    std::cout << "Depth:   " << depth << "\n";
-    std::cout << "Nodes:   " << nodes << "\n";
-    std::cout << "Time:    " << seconds << "s\n";
-    std::cout << "NPS:     " << nodes / seconds << "\n";
+    for (uint32_t depth = 0; depth <= maxDepth; depth++) {
+    #if defined(PERFT_USE_MEM_DUMP)
+        memSize = depth;
+    #endif
+        auto start = std::chrono::high_resolution_clock::now();
+        uint64_t nodes = perft(board, depth);
+        auto end = std::chrono::high_resolution_clock::now();
+        double milli = std::chrono::duration<double, std::milli>(end - start).count();
+        std::cout << "Position: " << fen << "\n";
+        std::cout << "Depth:   " << depth << "\n";
+        std::cout << "Nodes:   " << nodes << "\n";
+        std::cout << "Time:    " << milli << " ms\n";
+        std::cout << "NPS:     " << (uint64_t) (nodes / (milli / 1000)) << " nodes/s\n\n";
+    }
     destroyBoard(board);
 }
 
 int main() {
     initAttackTables();
     initRayTable();
+#if defined(PERFT_USE_MEM_DUMP)
     assertHandle = memDump;
+#endif
     testPos(STARTPOS_FEN, 7);
     return 0;
 }

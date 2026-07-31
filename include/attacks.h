@@ -11,7 +11,6 @@ extern "C" {
 #if !defined(NDEBUG)
     typedef void(*ErrorHandle)(void);
     extern ErrorHandle assertHandle;
-
     extern uint32_t global_getPieceAttacks_pieceType;
     extern uint32_t global_getPieceAttacks_square;
     extern uint64_t global_getPieceAttacks_occupancy;

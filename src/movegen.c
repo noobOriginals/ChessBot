@@ -40,7 +40,7 @@ uint32_t popLSB(uint64_t* bitboard) {
     return sq;
 }
 
-uint32_t unpackMovesBB(Board* board, uint32_t from, uint64_t movesbb, Move* moves, uint32_t begin) {
+uint32_t unpackAttacksBB(Board* board, uint32_t from, uint64_t movesbb, Move* moves, uint32_t begin) {
     while (movesbb != 0) {
         uint32_t to = popLSB(&movesbb);
         uint32_t flag = MOVE_QUIET;
@@ -54,16 +54,13 @@ uint32_t unpackMovesBB(Board* board, uint32_t from, uint64_t movesbb, Move* move
 
         // In case of pawn
         if (pType - sideOffset == PAWN) {
-            if (distance == 16) flag = MOVE_DOUBLE_PUSH; // Distance = 2 ranks -> double push
             if (to == board->epTarget) flag = MOVE_EP_CAPTURE; // TO square is ep target -> en passant
-            if ((to >> 3) == 7 || (to >> 3) == 0) { // Pawn reached last rank
-                flag = MOVE_PROMO_N;
-                if (capType != NO_PIECE) flag += MOVE_PROMO_CAPTURE_OFF; // Capture promotion
-                for (uint32_t i = 0; i < 4; i += 1) {
-                    moves[begin] = (Move) from | ((Move) to << 6) | ((Move) flag << 12);
-                    begin += 1;
-                    flag += 1;
-                }
+            else if ((to >> 3) == 7 || (to >> 3) == 0) { // Pawn reached last rank
+                moves[begin] = (Move) from | ((Move) to << 6) | ((Move) MOVE_PROMO_CAPTURE_N << 12);
+                moves[begin + 1] = (Move) from | ((Move) to << 6) | ((Move) MOVE_PROMO_CAPTURE_B << 12);
+                moves[begin + 2] = (Move) from | ((Move) to << 6) | ((Move) MOVE_PROMO_CAPTURE_R << 12);
+                moves[begin + 3] = (Move) from | ((Move) to << 6) | ((Move) MOVE_PROMO_CAPTURE_Q << 12);
+                begin += 4;
                 continue;
             }
         }
@@ -76,8 +73,27 @@ uint32_t unpackMovesBB(Board* board, uint32_t from, uint64_t movesbb, Move* move
     return begin;
 }
 
+uint32_t unpackPawnPushesBB(uint64_t movesbb, int32_t offset, uint32_t flag, Move* moves, uint32_t begin) {
+    while (movesbb != 0) {
+        uint32_t to = popLSB(&movesbb);
+        uint32_t from = to + offset;
+        if ((to >> 3) == 7 || (to >> 3) == 0) { // Pawn reached last rank
+            moves[begin] = (Move) from | ((Move) to << 6) | ((Move) MOVE_PROMO_N << 12);
+            moves[begin + 1] = (Move) from | ((Move) to << 6) | ((Move) MOVE_PROMO_B << 12);
+            moves[begin + 2] = (Move) from | ((Move) to << 6) | ((Move) MOVE_PROMO_R << 12);
+            moves[begin + 3] = (Move) from | ((Move) to << 6) | ((Move) MOVE_PROMO_Q << 12);
+            begin += 4;
+            continue;
+        }
+        moves[begin] = (Move) from | ((Move) to << 6) | ((Move) flag << 12);
+        begin += 1;
+    }
+    return begin;
+}
+
 // Movegen method
-Move* generateLegalMoves(Board* board, uint32_t* size) {
+Move* generateLegalMoves(Board* board, Move* moves, uint32_t* size) {
+    *size = 0;
     uint32_t myOff = (board->sideToMove ? BLACK_OFFSET : 0);
     uint64_t checkers = 0, attacked = 0, kingbb = board->pieces[KING + myOff];
 
@@ -107,43 +123,32 @@ Move* generateLegalMoves(Board* board, uint32_t* size) {
     if (popcountll(checkers) == 2) {
         uint32_t kingsq = ctzll(kingbb);
         uint64_t legal = getKingAttacks(kingsq) & ~defenders & ~attacked;
-        *size = popcountll(legal);
-        if (!*size) return NULL;
-        Move* moves = (Move*) calloc(*size, sizeof(Move));
-        unpackMovesBB(board, kingsq, legal, moves, 0);
+        *size = unpackAttacksBB(board, kingsq, legal, moves, *size);
         return moves;
     }
 
-    *size = 0;
-    Move moves[MAX_LEGAL_MOVES] = {};
     uint64_t target = between(checkers, kingbb) | checkers;
     uint64_t defendersCopy = defenders;
     while (defendersCopy != 0) {
         uint32_t sq = popLSB(&defendersCopy);
         uint64_t legal = ~defenders;
         switch (board->mailbox[sq] - myOff) {
-            case PAWN: legal &= getPawnAttacks(board->sideToMove, sq) & attackers & target; break;
+            case PAWN: legal &= getPawnAttacks(board->sideToMove, sq) & attackers & target & (1ull << board->epTarget); break;
             case KNIGHT: legal &= getKnightAttacks(sq) & target; break;
             case BISHOP: legal &= getBishopAttacks(sq, board->occupancy) & target; break;
             case ROOK: legal &= getRookAttacks(sq, board->occupancy) & target; break;
             case QUEEN: legal &= getQueenAttacks(sq, board->occupancy) & target; break;
             case KING: legal &= getKingAttacks(sq) & ~attacked; break;
         }
-        *size = unpackMovesBB(board, sq, legal, moves, *size);
+        *size = unpackAttacksBB(board, sq, legal, moves, *size);
     }
 
-    uint64_t singlePush = getPawnPushes(board->sideToMove, board->pieces[myOff], board->occupancy);
-    uint64_t doublePush = getPawnPushes(board->sideToMove, singlePush & (board->sideToMove ? RANK_6 : RANK_3), board->occupancy);
-    uint64_t pawnbb = board->pieces[myOff];
-    while (pawnbb != 0) {
-        uint32_t sq = popLSB(&pawnbb);
-        uint64_t mask = target & (FILE_A << (sq & 7));
-        *size = unpackMovesBB(board, sq, singlePush & mask, moves, *size);
-        *size = unpackMovesBB(board, sq, doublePush & mask, moves, *size);
-    }
+    // Generate pawn pushes
+    uint64_t singlePush = getPawnPushes(board->sideToMove, board->pieces[myOff], board->occupancy) & target;
+    uint64_t doublePush = getPawnPushes(board->sideToMove, singlePush & (board->sideToMove ? RANK_6 : RANK_3), board->occupancy) & target;
+    int32_t offset = board->sideToMove ? 8 : -8;
+    *size = unpackPawnPushesBB(singlePush, offset, MOVE_QUIET, moves, *size);
+    *size = unpackPawnPushesBB(doublePush, offset * 2, MOVE_DOUBLE_PUSH, moves, *size);
 
-    if (!*size) return NULL;
-    Move* final = (Move*) calloc(*size, sizeof(Move));
-    for (uint32_t i = 0; i < *size; i += 1) final[i] = moves[i];
-    return final;
+    return moves;
 }
