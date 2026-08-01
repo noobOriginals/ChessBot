@@ -10,10 +10,10 @@ This is my first try at coding a chess engine from scratch with little knowledge
 - Pawns have two different 'attacks': the real attack, diagonal captures (precomputed), and the pawn push (which is computed for all pawns at once with `getPawnPushes()` and `getPawnDoublePushes()`)
 - If you build and run this (`cmake -B build -S . -G <your_generator_choice> && cmake --build build --config <Debug/Release> -j<threads>`) you can interact with it and make moves on the ASCII string, console-displayed, board. Commands: normal UCI-style moves (`e2e4`), `undo`, `redo` (as long as that move was undoed before) `quit` and `print <x>`, where `x` can be any ONE of `P N B R Q K p n b r q k W w X x` (`W w` represent the single push bitboard for respective colored pawns, `X x` for double push, rest are self explanatory)
 - Also when it prompts for `initial board state`, the command is something like this `startpos e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 go`. `startpos` means reset the board, each move after that will be made on the board before displaying anything else, and `go` means the list of moves ended and it can start the interactive interaction
+- Movegen ('blazingly fast' with magic bitbords and pin masks, etc...) via `generateLegalMoves()`
 
 ## Upcoming features (hopefully completed sooner than later, but I won't promise anything)
 
-- Movegen ('blazingly fast' with magic bitbords and pin masks, etc...)
 - Some basic eval/search algorithm for simple play
 - UCI protocol implementation so anyone who has a UCI GUI can play this engine
 
