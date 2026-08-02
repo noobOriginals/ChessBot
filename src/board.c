@@ -1,6 +1,8 @@
 #include "board.h"
 
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 #include "debug_utils.h"
 
@@ -283,22 +285,196 @@ void unmakeMove(Board* board, Move move, UndoState* state) {
 }
 
 // Loading positions to the board
-Move stringToMove(Board* board, const char* str) {
+Move stringToMove(const Board* board, const char* str) {
     return 0;
 }
 
-const char* moveToString(Move move, char* buffer, u64 size) {
+char* moveToString(Move move, char* buffer, u64 size) {
     return buffer;
 }
 
-void setFEN(Board* board, const char* fen) {
+i32 setFEN(Board* board, const char* fen) {
+    memset(board, 0, sizeof(Board)); // Zero the board
+    u64 len = strlen(fen), i;
+    i8 rank = 7, file = 0;
+    for (i = 0; i < len && fen[i] != ' '; i++) {
+        // Next rank
+        if (fen[i] == '/') {
+            file = 0;
+            rank--;
+            continue;
+        }
 
+        // Skip empty squares
+        if (fen[i] < '9' && fen[i] > '0') {
+            file += fen[i] - '0';
+            continue;
+        }
+
+        // Decide piece type
+        u8 side = (fen[i] > 'Z') ? BLACK : WHITE;
+        char piece = side ? fen[i] - 'a' + 'A' : fen[i]; // - 'a' + 'A' -> switch to upper case if needed
+        switch (piece) {
+            case 'P': placePiece(board, PAWN | side, (rank << 3) + file); break;
+            case 'N': placePiece(board, KNIGHT | side, (rank << 3) + file); break;
+            case 'B': placePiece(board, BISHOP | side, (rank << 3) + file); break;
+            case 'R': placePiece(board, ROOK | side, (rank << 3) + file); break;
+            case 'Q': placePiece(board, QUEEN | side, (rank << 3) + file); break;
+            case 'K': placePiece(board, KING | side, (rank << 3) + file); break;
+            default: goto fail;
+        }
+
+        file++;
+    }
+    i++; if (i >= len) goto fail;
+
+    // Read side to move
+    board->side = (fen[i++] == 'w') ? WHITE : BLACK;
+    i++; if (i >= len) goto fail;
+
+    // Read castle rights
+    while (i < len && fen[i] != ' ') {
+        switch (fen[i++]) {
+            case 'K': board->castle |= WHITE_KC; break;
+            case 'Q': board->castle |= WHITE_QC; break;
+            case 'k': board->castle |= BLACK_KC; break;
+            case 'q': board->castle |= BLACK_QC; break;
+            default: break;
+        }
+    }
+    i++; if (i >= len) goto fail;
+
+    // Read ep target
+    if (fen[i] != '-') {
+        file = fen[i++] - 'a'; if (i >= len) goto fail;
+        rank = fen[i++] - '1'; if (i >= len) goto fail;
+        board->epTarget = bbsq((rank << 3) + file);
+    } else {
+        i++;
+    }
+    i++; if (i >= len) goto fail;
+
+    // Read half move count
+    while (i < len && fen[i] != ' ') {
+        board->halfMoves *= 10;
+        board->halfMoves += fen[i] - '0';
+        i++;
+    }
+    i++; if (i >= len) goto fail;
+
+    // Read full move count
+    while (i < len) {
+        board->fullMoves *= 10;
+        board->fullMoves += fen[i] - '0';
+        i++;
+    }
+    return 0;
+
+fail: // Fail label
+    printf("setFEN() failed: invalid FEN format\n"); return 1;
 }
 
-void setPosition(Board* board, const char* fen, const char** moves, u64 moveCount) {
-
+i32 setPosition(Board* board, const char* fen, const char** moves, u64 moveCount) {
+    if (setFEN(board, fen)) return 1;
+    return 0;
 }
 
-const char* getFEN(Board* board, char* buffer, u64 size) {
+char* getFEN(const Board* board, char* buffer, u64 size) {
+    u64 i = 0;
+    for (i8 rank = 7; rank > -1; rank--) {
+        u8 empty = 0;
+        for (i8 file = 0; file < 8; file++) {
+            u8 sq = (rank << 3) + file;
+            if (board->mailbox[sq]) {
+                if (empty) {
+                    buffer[i++] = empty + '0';
+                    empty = 0;
+                    if (i >= size) goto fail;
+                }
+                switch (ptype(board->mailbox[sq])) {
+                    case PAWN: buffer[i] = 'P'; break;
+                    case KNIGHT: buffer[i] = 'N'; break;
+                    case BISHOP: buffer[i] = 'B'; break;
+                    case ROOK: buffer[i] = 'R'; break;
+                    case QUEEN: buffer[i] = 'Q'; break;
+                    case KING: buffer[i] = 'K'; break;
+                    default: printf("getFEN() failed: invalid piece type\n"); return NULL;
+                }
+                buffer[i++] += (pside(board->mailbox[sq])) ? 'a' - 'A' : 0;
+                if (i >= size) goto fail;
+            } else {
+                empty++;
+            }
+        }
+        if (empty) {
+            buffer[i++] = empty + '0';
+            if (i >= size) goto fail;
+        }
+        buffer[i++] = (rank == 0) ? ' ' : '/';
+        if (i >= size) goto fail;
+    }
+
+    // Write side to move
+    buffer[i++] = board->side ? 'b' : 'w';
+    buffer[i++] = ' '; if (i >= size) goto fail;
+
+    // Write castle rights
+    if (board->castle) {
+        if (i + 4 >= size) goto fail;
+        if (board->castle & WHITE_KC) buffer[i++] = 'K';
+        if (board->castle & WHITE_QC) buffer[i++] = 'Q';
+        if (board->castle & BLACK_KC) buffer[i++] = 'k';
+        if (board->castle & BLACK_QC) buffer[i++] = 'q';
+    } else {
+        buffer[i++] = '-'; if (i >= size) goto fail;
+    }
+    buffer[i++] = ' '; if (i >= size) goto fail;
+
+    // Write ep target
+    if (board->epTarget) {
+        if (i + 2 >= size) goto fail;
+        buffer[i++] = (ctzll(board->epTarget) & 7) + 'a';
+        buffer[i++] = (ctzll(board->epTarget) >> 3) + '1';
+    } else {
+        buffer[i++] = '-'; if (i >= size) goto fail;
+    }
+    buffer[i++] = ' '; if (i >= size) goto fail;
+
+    u16 x, y;
+
+    // Write half moves
+    x = board->halfMoves;
+    y = 0;
+    while (x) {
+        y *= 10;
+        y += x % 10;
+        x /= 10;
+    }
+    if (!y) buffer[i++] = '0';
+    while (y) {
+        buffer[i++] = (y % 10) + '0';
+        if (i >= size) goto fail;
+        y /= 10;
+    }
+    buffer[i++] = ' '; if (i >= size) goto fail;
+
+    // Write full moves
+    x = board->fullMoves;
+    y = 0;
+    while (x) {
+        y *= 10;
+        y += x % 10;
+        x /= 10;
+    }
+    if (!y) buffer[i++] = '0';
+    while (y) {
+        buffer[i++] = (y % 10) + '0';
+        if (i >= size) goto fail;
+        y /= 10;
+    }
+    buffer[i] = 0;
     return buffer;
+
+fail: // Fail label
+    printf("getFEN() failed: buffer size too small\n"); return NULL;
 }

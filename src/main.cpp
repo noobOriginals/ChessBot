@@ -3,26 +3,16 @@
 #include "types.h"
 #include "bitboard.h"
 #include "board.h"
+#include "cppvisuals.hpp"
 
-std::ostream& stream(std::ostream& out, Bitboard bb) {
-    out << "     a   b   c   d   e   f   g   h     \n";
-    out << "   +---+---+---+---+---+---+---+---+   \n";
-    for (i32 r = 8; r > 0; r--) {
-        out << " " << r << " |";
-        for (i32 f = 0; f < 8; f++) {
-            if (bb & bbsq(((r - 1) << 3) + f)) {
-                out << " 1 |";
-            } else {
-                out << "   |";
-            }
-        }
-        out << " " << r << " \n";
-        out << "   +---+---+---+---+---+---+---+---+   \n";
-    }
-    out << "     a   b   c   d   e   f   g   h     ";
-    return out;
-}
+#define TEST_FEN_1 "r1bqkbnr/pppp1ppp/2n5/8/2PpP3/5N2/PP3PPP/RNBQKB1R b KQkq c3 0 4"
+#define TEST_FEN_2 "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3"
 
 i32 main() {
+    Board* board = createBoard();
+    setFEN(board, TEST_FEN_1);
+    std::cout << board << "\n";
+    std::cout << getSTDStringFEN(board) << "\n";
+    deleteBoard(board);
     return 0;
 }

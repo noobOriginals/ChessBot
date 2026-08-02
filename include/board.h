@@ -103,11 +103,11 @@ void makeMove(Board* board, Move move, UndoState* state);
 void unmakeMove(Board* board, Move move, UndoState* state);
 
 // Loading positions to the board
-Move stringToMove(Board* board, const char* str);
-const char* moveToString(Move move, char* buffer, u64 size);
-void setFEN(Board* board, const char* fen);
-void setPosition(Board* board, const char* fen, const char** moves, u64 moveCount);
-const char* getFEN(Board* board, char* buffer, u64 size);
+Move stringToMove(const Board* board, const char* str);
+char* moveToString(Move move, char* buffer, u64 size);
+i32 setFEN(Board* board, const char* fen);
+i32 setPosition(Board* board, const char* fen, const char** moves, u64 moveCount);
+char* getFEN(const Board* board, char* buffer, u64 size);
 
 #if defined(__cplusplus)
 } // extern "C"
