@@ -118,7 +118,7 @@ void makeMove(Board* board, Move move, UndoState* state) {
 
     case MOVE_EP_CAPTURE:
 
-        ASSERT_MSG(bbsq(to) == board->epTarget, "makeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
+        ASSERT_MSG(bbsq(to) == state->epTarget, "makeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
 
         removePiece(board, PAWN | (board->side ^ 1u), ctzll(epPawnMask[((to & 7) << 1) | board->side]));
         movePiece(board, piece, from, to);
@@ -227,53 +227,53 @@ void unmakeMove(Board* board, Move move, UndoState* state) {
 
     case MOVE_EP_CAPTURE:
 
-        ASSERT_MSG(bbsq(to) == board->epTarget, "unmakeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
+        ASSERT_MSG(bbsq(to) == state->epTarget, "unmakeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
 
         movePiece(board, piece, to, from);
         placePiece(board, PAWN | (board->side ^ 1u), ctzll(epPawnMask[((to & 7) << 1) | board->side]));
         break;
 
     case MOVE_PROMO_N:
-        removePiece(board, KNIGHT | board->side, to);
-        placePiece(board, piece, from);
+        removePiece(board, piece, to);
+        placePiece(board, PAWN | board->side, from);
         break;
 
     case MOVE_PROMO_B:
-        removePiece(board, BISHOP | board->side, to);
-        placePiece(board, piece, from);
+        removePiece(board, piece, to);
+        placePiece(board, PAWN | board->side, from);
         break;
 
     case MOVE_PROMO_R:
-        removePiece(board, ROOK | board->side, to);
-        placePiece(board, piece, from);
+        removePiece(board, piece, to);
+        placePiece(board, PAWN | board->side, from);
         break;
 
     case MOVE_PROMO_Q:
-        removePiece(board, QUEEN | board->side, to);
-        placePiece(board, piece, from);
+        removePiece(board, piece, to);
+        placePiece(board, PAWN | board->side, from);
         break;
 
     case MOVE_PROMO_CAPTURE_N:
-        removePiece(board, KNIGHT | board->side, to);
-        placePiece(board, piece, from);
+        removePiece(board, piece, to);
+        placePiece(board, PAWN | board->side, from);
         placePiece(board, capture, to);
         break;
 
     case MOVE_PROMO_CAPTURE_B:
-        removePiece(board, BISHOP | board->side, to);
-        placePiece(board, piece, from);
+        removePiece(board, piece, to);
+        placePiece(board, PAWN | board->side, from);
         placePiece(board, capture, to);
         break;
 
     case MOVE_PROMO_CAPTURE_R:
-        removePiece(board, ROOK | board->side, to);
-        placePiece(board, piece, from);
+        removePiece(board, piece, to);
+        placePiece(board, PAWN | board->side, from);
         placePiece(board, capture, to);
         break;
 
     case MOVE_PROMO_CAPTURE_Q:
-        removePiece(board, QUEEN | board->side, to);
-        placePiece(board, piece, from);
+        removePiece(board, piece, to);
+        placePiece(board, PAWN | board->side, from);
         placePiece(board, capture, to);
         break;
 
@@ -308,10 +308,10 @@ Move stringToMove(const Board* board, const char* str) {
         } else if ((to >> 3) == 0 || (to >> 3) == 7) {
             if (strlen(str) < 5) goto fail;
             switch (str[4]) {
-                case 'n': flag ? MOVE_PROMO_CAPTURE_N : MOVE_PROMO_N; break;
-                case 'b': flag ? MOVE_PROMO_CAPTURE_B : MOVE_PROMO_B; break;
-                case 'r': flag ? MOVE_PROMO_CAPTURE_R : MOVE_PROMO_R; break;
-                case 'q': flag ? MOVE_PROMO_CAPTURE_Q : MOVE_PROMO_Q; break;
+                case 'n': flag = flag ? MOVE_PROMO_CAPTURE_N : MOVE_PROMO_N; break;
+                case 'b': flag = flag ? MOVE_PROMO_CAPTURE_B : MOVE_PROMO_B; break;
+                case 'r': flag = flag ? MOVE_PROMO_CAPTURE_R : MOVE_PROMO_R; break;
+                case 'q': flag = flag ? MOVE_PROMO_CAPTURE_Q : MOVE_PROMO_Q; break;
                 default: goto fail;
             }
         }
@@ -437,7 +437,7 @@ i32 setFEN(Board* board, const char* fen) {
     i++; if (i >= len) goto fail;
 
     // Read full move count
-    while (i < len) {
+    while (i < len && fen[i] != ' ') {
         board->fullMoves *= 10;
         board->fullMoves += fen[i] - '0';
         i++;
