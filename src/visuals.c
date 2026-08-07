@@ -27,11 +27,11 @@ static const char* boardVisualTemplate =
 
 char* getVisualBoard(const Board* board, char* buffer, u64 size) {
     if (!buffer) {
-        printf("getVisualBoard() failed: invalid buffer pointer\n");
+        fprintf(stderr, "getVisualBoard() failed: invalid buffer pointer\n");
         return NULL;
     }
     if (size < VISUAL_BUFFER_SIZE) {
-        printf("getVisualBoard() failed: invalid buffer size\n");
+        fprintf(stderr, "getVisualBoard() failed: invalid buffer size\n");
         return NULL;
     }
     memcpy(buffer, boardVisualTemplate, strlen(boardVisualTemplate));
@@ -63,11 +63,11 @@ char* getVisualBoard(const Board* board, char* buffer, u64 size) {
 
 char* getVisualBitboard(Bitboard bb, char* buffer, u64 size) {
     if (!buffer) {
-        printf("getVisualBoard() failed: invalid buffer pointer\n");
+        fprintf(stderr, "getVisualBoard() failed: invalid buffer pointer\n");
         return NULL;
     }
     if (size < VISUAL_BUFFER_SIZE) {
-        printf("getVisualBoard() failed: invalid buffer size\n");
+        fprintf(stderr, "getVisualBoard() failed: invalid buffer size\n");
         return NULL;
     }
     memcpy(buffer, boardVisualTemplate, strlen(boardVisualTemplate));

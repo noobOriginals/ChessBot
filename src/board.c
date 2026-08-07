@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <stdio.h>
 
 #include "debug_utils.h"
@@ -74,7 +75,7 @@ void makeMove(Board* board, Move move, UndoState* state) {
     ASSERT_MSG(board, "makeMove() failed: board pointer cannot be NULL");
     ASSERT_MSG(state, "makeMove() failed: undo state pointer cannot be NULL");
 
-    // Unpack move data
+    // Unpack move type
     u8 from = (u8) moveFrom(move), to = (u8) moveTo(move), flag = (u8) moveFlag(move);
 
     ASSERT_MSG(from != to, "makeMove() failed: from index cannot equal to index");
@@ -117,7 +118,7 @@ void makeMove(Board* board, Move move, UndoState* state) {
 
     case MOVE_EP_CAPTURE:
 
-        ASSERT_MSG(to == ctzll(board->epTarget), "makeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
+        ASSERT_MSG(bbsq(to) == board->epTarget, "makeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
 
         removePiece(board, PAWN | (board->side ^ 1u), ctzll(epPawnMask[((to & 7) << 1) | board->side]));
         movePiece(board, piece, from, to);
@@ -186,7 +187,7 @@ void unmakeMove(Board* board, Move move, UndoState* state) {
     ASSERT_MSG(board, "unmakeMove() failed: board pointer cannot be NULL");
     ASSERT_MSG(state, "unmakeMove() failed: undo state pointer cannot be NULL");
 
-    // Unpack move data
+    // Unpack move type
     u8 from = (u8) moveFrom(move), to = (u8) moveTo(move), flag = (u8) moveFlag(move);
 
     ASSERT_MSG(from != to, "unmakeMove() failed: from index cannot equal to index");
@@ -226,7 +227,7 @@ void unmakeMove(Board* board, Move move, UndoState* state) {
 
     case MOVE_EP_CAPTURE:
 
-        ASSERT_MSG(to == ctzll(board->epTarget), "unmakeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
+        ASSERT_MSG(bbsq(to) == board->epTarget, "unmakeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
 
         movePiece(board, piece, to, from);
         placePiece(board, PAWN | (board->side ^ 1u), ctzll(epPawnMask[((to & 7) << 1) | board->side]));
@@ -286,14 +287,87 @@ void unmakeMove(Board* board, Move move, UndoState* state) {
 
 // Loading positions to the board
 Move stringToMove(const Board* board, const char* str) {
+
+    ASSERT_MSG(board, "stringToMove() failed: board pointer cannot be NULL");
+
+    if (strlen(str) < 4) goto fail;
+
+    // Unpack string
+    u8 from = ((str[1] - '1') << 3) + str[0] - 'a';
+    u8 to = ((str[3] - '1') << 3) + str[2] - 'a';
+    u8 flag = board->mailbox[to] ? MOVE_CAPTURE : MOVE_QUIET;
+
+    // Handle special falgs
+    u8 type = ptype(board->mailbox[from]);
+    u8 dist = (u8) abs((i8) to - from);
+    if (type == PAWN) {
+        if (dist == 16) {
+            flag = MOVE_DOUBLE_PUSH;
+        } else if (bbsq(to) == board->epTarget) {
+            flag = MOVE_EP_CAPTURE;
+        } else if ((to >> 3) == 0 || (to >> 3) == 7) {
+            if (strlen(str) < 5) goto fail;
+            switch (str[4]) {
+                case 'n': flag ? MOVE_PROMO_CAPTURE_N : MOVE_PROMO_N; break;
+                case 'b': flag ? MOVE_PROMO_CAPTURE_B : MOVE_PROMO_B; break;
+                case 'r': flag ? MOVE_PROMO_CAPTURE_R : MOVE_PROMO_R; break;
+                case 'q': flag ? MOVE_PROMO_CAPTURE_Q : MOVE_PROMO_Q; break;
+                default: goto fail;
+            }
+        }
+    } else if (type == KING && dist == 2) {
+        flag = ((i8) to - from) > 0 ? MOVE_CASTLE_K : MOVE_CASTLE_Q;
+    }
+
+    // Pack move type
+    return (Move) from | ((Move) to << 6) | ((Move) flag << 12);
+
+fail: // Fail label
+    fprintf(stderr, "stringToMove() failed: invalid string format\n");
     return 0;
 }
 
 char* moveToString(Move move, char* buffer, u64 size) {
+
+    ASSERT_MSG(move, "moveToString() failed: move cannot be 0 (zero)");
+
+    if (size < 5) goto fail;
+
+    // Unpack move type
+    u8 from = (u8) moveFrom(move), to = (u8) moveTo(move), flag = (u8) moveFlag(move);
+
+    // Write to buffer
+    buffer[0] = (from & 7) + 'a';
+    buffer[1] = (from >> 3) + '1';
+    buffer[2] = (to & 7) + 'a';
+    buffer[3] = (to >> 3) + '1';
+    buffer[4] = 0;
+
+    // Handle promotions
+    flag = flag >= MOVE_PROMO_CAPTURE_N ? flag - MOVE_PROMO_CAPTURE_OFF : flag;
+    if (flag >= MOVE_PROMO_N) {
+        if (size < 6) goto fail;
+        switch (flag) {
+            case MOVE_PROMO_N: buffer[4] = 'n'; break;
+            case MOVE_PROMO_B: buffer[4] = 'b'; break;
+            case MOVE_PROMO_R: buffer[4] = 'r'; break;
+            case MOVE_PROMO_Q: buffer[4] = 'q'; break;
+            default: fprintf(stderr, "moveToString() failed: invalid move flag\n"); return NULL;
+        }
+        buffer[5] = 0;
+    }
+
     return buffer;
+
+fail: // Fail label
+    fprintf(stderr, "moveToString() failed: buffer size too small\n");
+    return NULL;
 }
 
 i32 setFEN(Board* board, const char* fen) {
+
+    ASSERT_MSG(board, "setFEN() failed: board pointer cannot be NULL");
+
     memset(board, 0, sizeof(Board)); // Zero the board
     u64 len = strlen(fen), i;
     i8 rank = 7, file = 0;
@@ -371,15 +445,30 @@ i32 setFEN(Board* board, const char* fen) {
     return 0;
 
 fail: // Fail label
-    printf("setFEN() failed: invalid FEN format\n"); return 1;
+    fprintf(stderr, "setFEN() failed: invalid FEN format\n"); return 1;
 }
 
 i32 setPosition(Board* board, const char* fen, const char** moves, u64 moveCount) {
+
+    ASSERT_MSG(board, "setPosition() failed: board pointer cannot be NULL");
+
+    // Set fen
     if (setFEN(board, fen)) return 1;
+
+    // Then make each move. TODO: check if move is legal or not.
+    UndoState dummyState;
+    for (u64 i = 0; i < moveCount; i++) {
+        Move m = stringToMove(board, moves[i]);
+        if (!m) return 1;
+        makeMove(board, m, &dummyState);
+    }
     return 0;
 }
 
 char* getFEN(const Board* board, char* buffer, u64 size) {
+
+    ASSERT_MSG(board, "getFEN() failed: board pointer cannot be NULL");
+
     u64 i = 0;
     for (i8 rank = 7; rank > -1; rank--) {
         u8 empty = 0;
@@ -398,7 +487,7 @@ char* getFEN(const Board* board, char* buffer, u64 size) {
                     case ROOK: buffer[i] = 'R'; break;
                     case QUEEN: buffer[i] = 'Q'; break;
                     case KING: buffer[i] = 'K'; break;
-                    default: printf("getFEN() failed: invalid piece type\n"); return NULL;
+                    default: fprintf(stderr, "getFEN() failed: invalid piece type\n"); return NULL;
                 }
                 buffer[i++] += (pside(board->mailbox[sq])) ? 'a' - 'A' : 0;
                 if (i >= size) goto fail;
@@ -433,8 +522,9 @@ char* getFEN(const Board* board, char* buffer, u64 size) {
     // Write ep target
     if (board->epTarget) {
         if (i + 2 >= size) goto fail;
-        buffer[i++] = (ctzll(board->epTarget) & 7) + 'a';
-        buffer[i++] = (ctzll(board->epTarget) >> 3) + '1';
+        u8 sq = ctzll(board->epTarget);
+        buffer[i++] = (sq & 7) + 'a';
+        buffer[i++] = (sq >> 3) + '1';
     } else {
         buffer[i++] = '-'; if (i >= size) goto fail;
     }
@@ -476,5 +566,5 @@ char* getFEN(const Board* board, char* buffer, u64 size) {
     return buffer;
 
 fail: // Fail label
-    printf("getFEN() failed: buffer size too small\n"); return NULL;
+    fprintf(stderr, "getFEN() failed: buffer size too small\n"); return NULL;
 }
