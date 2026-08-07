@@ -120,7 +120,7 @@ void makeMove(Board* board, Move move, UndoState* state) {
 
         ASSERT_MSG(bbsq(to) == state->epTarget, "makeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
 
-        removePiece(board, PAWN | (board->side ^ 1u), ctzll(epPawnMask[((to & 7) << 1) | board->side]));
+        removePiece(board, PAWN | (board->side ^ 1u), (u8) ctzll(epPawnMask[((to & 7) << 1) | board->side]));
         movePiece(board, piece, from, to);
         break;
 
@@ -230,7 +230,7 @@ void unmakeMove(Board* board, Move move, UndoState* state) {
         ASSERT_MSG(bbsq(to) == state->epTarget, "unmakeMove() failed: MOVE_EP_CAPTURE flag passed but to square is not ep target");
 
         movePiece(board, piece, to, from);
-        placePiece(board, PAWN | (board->side ^ 1u), ctzll(epPawnMask[((to & 7) << 1) | board->side]));
+        placePiece(board, PAWN | (board->side ^ 1u), (u8) ctzll(epPawnMask[((to & 7) << 1) | board->side]));
         break;
 
     case MOVE_PROMO_N:
@@ -522,7 +522,7 @@ char* getFEN(const Board* board, char* buffer, u64 size) {
     // Write ep target
     if (board->epTarget) {
         if (i + 2 >= size) goto fail;
-        u8 sq = ctzll(board->epTarget);
+        u8 sq = (u8) ctzll(board->epTarget);
         buffer[i++] = (sq & 7) + 'a';
         buffer[i++] = (sq >> 3) + '1';
     } else {

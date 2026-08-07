@@ -14,7 +14,13 @@ add_executable(${PROJECT_NAME} ${Sources})
 target_include_directories(${PROJECT_NAME} PRIVATE ${HeaderPath})
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 if (MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /O2 /W3)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Debug>:/W4>
+        $<$<CONFIG:Release>:/O2>
+    )
 else()
-    target_compile_options(${PROJECT_NAME} PRIVATE -O3 -Wextra -Wunused)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Debug>:-Wextra -Wunused -Wconversion -Wpedantic>
+        $<$<CONFIG:Release>:-O3>
+    )
 endif()
