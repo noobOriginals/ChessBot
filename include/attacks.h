@@ -9,10 +9,13 @@ extern "C" {
 #endif
 
 // Init attack tables
-void initAttacks();
+void initAttacks(void);
+
+// For non-sliders
+Bitboard getAttacksAt(u8 square, i8 fileOff, i8 rankOffset);
 
 // 'Ray-Marching' aproach
-Bitboard getSlidingAttacks(u8 square, Bitboard occupancy, i8 dir);
+Bitboard getSlidingAttacks(u8 square, Bitboard occupancy, i8 fileDir, i8 rankDir);
 Bitboard getBishopAttacksSlow(u8 square, Bitboard occupancy);
 Bitboard getRookAttacksSlow(u8 square, Bitboard occupancy);
 Bitboard getQueenAttacksSlow(u8 square, Bitboard occupancy);

@@ -20,7 +20,7 @@ if (MSVC)
     )
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE
-        $<$<CONFIG:Debug>:-Wextra -Wunused -Wconversion -Wpedantic>
+        $<$<CONFIG:Debug>:-Wextra -Wunused -Wsign-conversion -Wpedantic>
         $<$<CONFIG:Release>:-O3>
     )
 endif()

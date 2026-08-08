@@ -26,16 +26,16 @@ extern "C" {
 
 #define NO_EP_TARGET 0ull
 
-#define WHITE_KC 0b1000u
-#define WHITE_QC 0b0100u
-#define BLACK_KC 0b0010u
-#define BLACK_QC 0b0001u
+#define WHITE_KC 8u
+#define WHITE_QC 4u
+#define BLACK_KC 2u
+#define BLACK_QC 1u
 
 #define STARTPOS_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-#define MOVE_FROM_MASK 0b0000000000111111u
-#define MOVE_TO_MASK   0b0000111111000000u
-#define MOVE_FLAG_MASK 0b1111000000000000u
+#define MOVE_FROM_MASK 63u
+#define MOVE_TO_MASK 4032u
+#define MOVE_FLAG_MASK 61440u
 
 #define MOVE_QUIET 0u
 #define MOVE_DOUBLE_PUSH 1u
@@ -90,7 +90,7 @@ extern const Bitboard epTargetMask[16];
 extern const Bitboard epPawnMask[16];
 
 // Basic board struct handles
-Board* createBoard();
+Board* createBoard(void);
 void deleteBoard(Board* board);
 
 // Basic board ops utility

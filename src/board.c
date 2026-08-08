@@ -2,7 +2,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include <stdio.h>
 
 #include "debug_utils.h"
@@ -13,7 +12,7 @@ const Bitboard epTargetMask[16] = {0x10000ull, 0x10000000000ull, 0x20000ull, 0x2
 const Bitboard epPawnMask[16] = {0x100000000ull, 0x1000000ull, 0x200000000ull, 0x2000000ull, 0x400000000ull, 0x4000000ull, 0x800000000ull, 0x8000000ull, 0x1000000000ull, 0x10000000ull, 0x2000000000ull, 0x20000000ull, 0x4000000000ull, 0x40000000ull, 0x8000000000ull, 0x80000000ull};
 
 // Basic board struct handles
-Board* createBoard() {
+Board* createBoard(void) {
     return (Board*) calloc(1, sizeof(Board));
 }
 

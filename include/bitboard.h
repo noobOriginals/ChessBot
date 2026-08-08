@@ -40,7 +40,7 @@ extern "C" {
 typedef u64 Bitboard;
 
 // Init static values
-void initBitboard();
+void initBitboard(void);
 
 // Pop least significant set bit and return its index
 u8 popLSB(Bitboard* bb);

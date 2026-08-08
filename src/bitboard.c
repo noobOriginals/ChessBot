@@ -1,6 +1,6 @@
 #include "bitboard.h"
 
-#include <math.h>
+#include <stdlib.h>
 
 #include "debug_utils.h"
 
@@ -8,7 +8,7 @@
 static Bitboard betweenTable[4096];
 
 // Init betweenTable
-static void initBetweenTable() {
+static void initBetweenTable(void) {
     for (i32 a = 0; a < 64; a++) {
         for (i32 b = 0; b < 64; b++) {
             betweenTable[(a << 6) + b] = 0;
@@ -37,7 +37,7 @@ static void initBetweenTable() {
 }
 
 // Init static values
-void initBitboard() {
+void initBitboard(void) {
     initBetweenTable();
 }
 
