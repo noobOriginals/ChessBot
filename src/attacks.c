@@ -128,6 +128,7 @@ Bitboard getAttacksAt(u8 square, i8 fileOff, i8 rankOffset) {
 // 'Ray-Marching' aproach
 Bitboard getSlidingAttacks(u8 square, Bitboard occupancy, i8 fileDir, i8 rankDir) {
 
+    PUSH_STACK_TRACE("getSlidingAttacks()");
     ASSERT_MSG(square < 64, "getSlidingAttacks() failed: square index out of bounds");
 
     Bitboard attacks = 0ull;
@@ -139,12 +140,17 @@ Bitboard getSlidingAttacks(u8 square, Bitboard occupancy, i8 fileDir, i8 rankDir
         attacks |= bbsq((r << 3) + f);
         if (attacks & occupancy) break;
     }
+
+    POP_STACK_TRACE();
+
     return attacks;
 }
 
 Bitboard getBishopAttacksSlow(u8 square, Bitboard occupancy) {
 
+    PUSH_STACK_TRACE("getBishopAttacksSlow()");
     ASSERT_MSG(square < 64, "getBishopAttacksSlow() failed: square index out of bounds");
+    POP_STACK_TRACE();
 
     return
         getSlidingAttacks(square, occupancy,  1,  1) |
@@ -155,7 +161,9 @@ Bitboard getBishopAttacksSlow(u8 square, Bitboard occupancy) {
 
 Bitboard getRookAttacksSlow(u8 square, Bitboard occupancy) {
 
+    PUSH_STACK_TRACE("getRookAttacksSlow()");
     ASSERT_MSG(square < 64, "getRookAttacksSlow() failed: square index out of bounds");
+    POP_STACK_TRACE();
 
     return
         getSlidingAttacks(square, occupancy,  0,  1) |
@@ -166,7 +174,9 @@ Bitboard getRookAttacksSlow(u8 square, Bitboard occupancy) {
 
 Bitboard getQueenAttacksSlow(u8 square, Bitboard occupancy) {
 
+    PUSH_STACK_TRACE("getQueenAttacksSlow()");
     ASSERT_MSG(square < 64, "getQueenAttacksSlow() failed: square index out of bounds");
+    POP_STACK_TRACE();
 
     return getBishopAttacksSlow(square, occupancy) | getRookAttacksSlow(square, occupancy);
 }
@@ -174,49 +184,65 @@ Bitboard getQueenAttacksSlow(u8 square, Bitboard occupancy) {
 // Fast, precomputed aproach
 Bitboard getPawnAttacks(u8 square, u8 side) {
 
+    PUSH_STACK_TRACE("getPawnAttacks()");
     ASSERT_MSG(square < 64, "getPawnAttacks() failed: square index out of bounds");
     ASSERT_MSG(side < 2, "getPawnAttacks() failed: side can only have the value 0 (zero) or 1 (one)");
+    POP_STACK_TRACE();
 
     return pawnAttacks[(square << 1) | side];
 }
 
 Bitboard getKnightAttacks(u8 square) {
 
+    PUSH_STACK_TRACE("getKnightAttacks()");
     ASSERT_MSG(square < 64, "getKnightAttacks() failed: square index out of bounds");
+    POP_STACK_TRACE();
 
     return knightAttacks[square];
 }
 
 Bitboard getBishopAttacks(u8 square, Bitboard occupancy) {
 
+    PUSH_STACK_TRACE("getBishopAttacks()");
     ASSERT_MSG(square < 64, "getBishopAttacks() failed: square index out of bounds");
 
     occupancy &= bishopMask[square];
     occupancy *= bishopMagic[square];
     occupancy >>= bishopShift[square];
+
+    POP_STACK_TRACE();
+
     return bishopPtr[square][occupancy];
 }
 
 Bitboard getRookAttacks(u8 square, Bitboard occupancy) {
 
+    PUSH_STACK_TRACE("getRookAttacks()");
     ASSERT_MSG(square < 64, "getRookAttacks() failed: square index out of bounds");
 
     occupancy &= rookMask[square];
     occupancy *= rookMagic[square];
     occupancy >>= rookShift[square];
+
+    POP_STACK_TRACE();
+
     return rookPtr[square][occupancy];
 }
 
 Bitboard getQueenAttacks(u8 square, Bitboard occupancy) {
 
+    PUSH_STACK_TRACE("getQueenAttacks()");
     ASSERT_MSG(square < 64, "getQueenAttacks() failed: square index out of bounds");
+    POP_STACK_TRACE();
 
     return getBishopAttacks(square, occupancy) | getRookAttacks(square, occupancy);
 }
 
 Bitboard getKingAttacks(u8 square) {
 
+    PUSH_STACK_TRACE("getKingAttacks()");
     ASSERT_MSG(square < 64, "getKingAttacks() failed: square index out of bounds");
+    POP_STACK_TRACE();
 
     return kingAttacks[square];
 }
@@ -224,7 +250,9 @@ Bitboard getKingAttacks(u8 square) {
 // Bulk generation of pawn pushed
 Bitboard getPawnPushes(Bitboard bitboard, Bitboard occupancy, u8 side) {
 
+    PUSH_STACK_TRACE("getPawnPushes()");
     ASSERT_MSG(side < 2, "getPawnPushes() failed: side can only have the value 0 (zero) or 1 (one)");
+    POP_STACK_TRACE();
 
     return side ? (bitboard >> 8) & ~occupancy : (bitboard << 8) & ~occupancy;
 }

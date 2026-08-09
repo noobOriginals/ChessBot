@@ -1,10 +1,15 @@
 #include <iostream>
+#include <chrono>
 #include <string>
 
 #include "types.h"
 #include "bitboard.h"
 #include "board.h"
 #include "attacks.h"
+#include "movegen.h"
+
+#include "debug_utils.h"
+
 #include "cppvisuals.hpp"
 
 #define TEST_FEN_1 "r1bqkbnr/pppp1ppp/2n5/8/2PpP3/5N2/PP3PPP/RNBQKB1R b KQkq c3 0 4"
@@ -50,10 +55,38 @@ bool testMagicBitboards() {
     return true;
 }
 
+u64 perft(Board* board, u32 depth) {
+    if (depth == 0) return 1;
+
+    PUSH_STACK_TRACE("perft()");
+
+    u64 legalCount;
+    Move legal[MAX_LEGAL_MOVES];
+    generateLegalMoves(board, legal, &legalCount);
+
+    if (depth == 1) {
+
+        POP_STACK_TRACE();
+
+        return legalCount;
+    }
+
+    UndoState state;
+    u64 nodes = 0;
+    for (u64 i = 0; i < legalCount; i++) {
+        makeMove(board, legal[i], &state);
+        nodes += perft(board, depth - 1);
+        unmakeMove(board, legal[i], &state);
+    }
+
+    POP_STACK_TRACE();
+
+    return nodes;
+}
+
 i32 main() {
     initBitboard();
     initAttacks();
-    if (!testMagicBitboards()) return 1;
 
     std::string input;
     Move moves[1024];
@@ -96,13 +129,27 @@ i32 main() {
     }
 
     // Loop
+    u64 legalCount;
+    Move legalMoves[MAX_LEGAL_MOVES];
     while (true) {
         std::cout << board << "\n";
-        std::cout << "Board FEN: " << getSTDStringFEN(board) << "\n";
+        std::cout << "Board: FEN: " << getSTDStringFEN(board) << "\n";
+        generateLegalMoves(board, legalMoves, &legalCount);
+        std::cout << "Board: " << legalCount << " pseudo-legal moves: ";
+        for (u64 i = 0; i < legalCount; i++) std::cout << getSTDStringMove(legalMoves[i]) << " ";
+        std::cout << "\n";
         std::cout << "Enter move: ";
         std::cin >> input;
         if (input == "quit" || input == "q") {
             return 0;
+        } else if (input == "perft") {
+            u32 depth;
+            std::cin >> depth;
+            auto start = std::chrono::high_resolution_clock::now();
+            u64 nodes = perft(board, depth);
+            u64 elapsed = std::chrono::duration<u64, std::nano>(std::chrono::high_resolution_clock::now() - start).count();
+            std::cout << "Perft depth " << depth << ", position: FEN: " << getSTDStringFEN(board) << ", nodes: " << nodes << ", NPS: " << nodes * 1000000000 / elapsed << "\n";
+            continue;
         } else if (input == "undo") {
             if (moveIdx == 0) continue;
             moveIdx--;

@@ -18,14 +18,18 @@ Board* createBoard(void) {
 
 void deleteBoard(Board* board) {
 
+    PUSH_STACK_TRACE("deleteBoard()");
     ASSERT_MSG(board, "deleteBoard() failed: board pointer cannot be NULL");
 
     free(board);
+
+    POP_STACK_TRACE();
 }
 
 // Basic board ops utility
 void placePiece(Board* board, u8 piece, u8 square) {
 
+    PUSH_STACK_TRACE("placePiece()");
     ASSERT_MSG(board, "placePiece() failed: board pointer cannot be NULL");
     ASSERT_MSG(piece > 1 && piece < 14, "placePiece() failed: piece type out of bounds");
     ASSERT_MSG(square < 64, "placePiece() failed: square index out of bounds");
@@ -36,10 +40,13 @@ void placePiece(Board* board, u8 piece, u8 square) {
     board->bb[pside(piece)] |= mask;
     board->bb[piece] |= mask;
     board->mailbox[square] = piece;
+
+    POP_STACK_TRACE();
 }
 
 void removePiece(Board* board, u8 piece, u8 square) {
 
+    PUSH_STACK_TRACE("removePiece()");
     ASSERT_MSG(board, "removePiece() failed: board pointer cannot be NULL");
     ASSERT_MSG(piece > 1 && piece < 14, "removePiece() failed: piece type out of bounds");
     ASSERT_MSG(square < 64, "removePiece() failed: square index out of bounds");
@@ -49,10 +56,13 @@ void removePiece(Board* board, u8 piece, u8 square) {
     board->bb[pside(piece)] &= mask;
     board->bb[piece] &= mask;
     board->mailbox[square] = NO_PIECE;
+
+    POP_STACK_TRACE();
 }
 
 void movePiece(Board* board, u8 piece, u8 from, u8 to) {
 
+    PUSH_STACK_TRACE("movePiece()");
     ASSERT_MSG(board, "movePiece() failed: board pointer cannot be NULL");
     ASSERT_MSG(piece > 1 && piece < 14, "movePiece() failed: piece type out of bounds");
     ASSERT_MSG(from < 64, "movePiece() failed: from index out of bounds");
@@ -66,11 +76,14 @@ void movePiece(Board* board, u8 piece, u8 from, u8 to) {
     board->bb[piece] ^= mask;
     board->mailbox[from] = NO_PIECE;
     board->mailbox[to] = piece;
+
+    POP_STACK_TRACE();
 }
 
 // Most important of all
 void makeMove(Board* board, Move move, UndoState* state) {
 
+    PUSH_STACK_TRACE("makeMove()");
     ASSERT_MSG(board, "makeMove() failed: board pointer cannot be NULL");
     ASSERT_MSG(state, "makeMove() failed: undo state pointer cannot be NULL");
 
@@ -179,10 +192,13 @@ void makeMove(Board* board, Move move, UndoState* state) {
     board->halfMoves = (ptype(piece) == PAWN || capture != NO_PIECE || flag == MOVE_EP_CAPTURE) ? 0 : board->halfMoves + 1;
     board->fullMoves += board->side;
     board->side ^= 1u;
+
+    POP_STACK_TRACE();
 }
 
 void unmakeMove(Board* board, Move move, UndoState* state) {
 
+    PUSH_STACK_TRACE("unmakeMove()");
     ASSERT_MSG(board, "unmakeMove() failed: board pointer cannot be NULL");
     ASSERT_MSG(state, "unmakeMove() failed: undo state pointer cannot be NULL");
 
@@ -282,11 +298,14 @@ void unmakeMove(Board* board, Move move, UndoState* state) {
 
         break;
     }
+
+    POP_STACK_TRACE();
 }
 
 // Loading positions to the board
 Move stringToMove(const Board* board, const char* str) {
 
+    PUSH_STACK_TRACE("stringToMove()");
     ASSERT_MSG(board, "stringToMove() failed: board pointer cannot be NULL");
 
     if (strlen(str) < 4) goto fail;
@@ -318,16 +337,22 @@ Move stringToMove(const Board* board, const char* str) {
         flag = ((i8) to - from) > 0 ? MOVE_CASTLE_K : MOVE_CASTLE_Q;
     }
 
+    POP_STACK_TRACE();
+
     // Pack move type
     return (Move) from | ((Move) to << 6) | ((Move) flag << 12);
 
 fail: // Fail label
     fprintf(stderr, "stringToMove() failed: invalid string format\n");
+
+    POP_STACK_TRACE();
+
     return 0;
 }
 
 char* moveToString(Move move, char* buffer, u64 size) {
 
+    PUSH_STACK_TRACE("moveToString()");
     ASSERT_MSG(move, "moveToString() failed: move cannot be 0 (zero)");
 
     if (size < 5) goto fail;
@@ -351,20 +376,26 @@ char* moveToString(Move move, char* buffer, u64 size) {
             case MOVE_PROMO_B: buffer[4] = 'b'; break;
             case MOVE_PROMO_R: buffer[4] = 'r'; break;
             case MOVE_PROMO_Q: buffer[4] = 'q'; break;
-            default: fprintf(stderr, "moveToString() failed: invalid move flag\n"); return NULL;
+            default: fprintf(stderr, "moveToString() failed: invalid move flag\n"); POP_STACK_TRACE(); return NULL;
         }
         buffer[5] = 0;
     }
+
+    POP_STACK_TRACE();
 
     return buffer;
 
 fail: // Fail label
     fprintf(stderr, "moveToString() failed: buffer size too small\n");
+
+    POP_STACK_TRACE();
+
     return NULL;
 }
 
 i32 setFEN(Board* board, const char* fen) {
 
+    PUSH_STACK_TRACE("setFEN()");
     ASSERT_MSG(board, "setFEN() failed: board pointer cannot be NULL");
 
     memset(board, 0, sizeof(Board)); // Zero the board
@@ -441,18 +472,31 @@ i32 setFEN(Board* board, const char* fen) {
         board->fullMoves += fen[i] - '0';
         i++;
     }
+
+    POP_STACK_TRACE();
+
     return 0;
 
 fail: // Fail label
-    fprintf(stderr, "setFEN() failed: invalid FEN format\n"); return 1;
+    fprintf(stderr, "setFEN() failed: invalid FEN format\n");
+
+    POP_STACK_TRACE();
+
+    return 1;
 }
 
 i32 setPosition(Board* board, const char* fen, const char** moves, u64 moveCount) {
 
+    PUSH_STACK_TRACE("setPosition()");
     ASSERT_MSG(board, "setPosition() failed: board pointer cannot be NULL");
 
     // Set fen
-    if (setFEN(board, fen)) return 1;
+    if (setFEN(board, fen)) {
+
+        POP_STACK_TRACE();
+
+        return 1;
+    }
 
     // Then make each move. TODO: check if move is legal or not.
     UndoState dummyState;
@@ -461,11 +505,15 @@ i32 setPosition(Board* board, const char* fen, const char** moves, u64 moveCount
         if (!m) return 1;
         makeMove(board, m, &dummyState);
     }
+
+    POP_STACK_TRACE();
+
     return 0;
 }
 
 char* getFEN(const Board* board, char* buffer, u64 size) {
 
+    PUSH_STACK_TRACE("getFEN()");
     ASSERT_MSG(board, "getFEN() failed: board pointer cannot be NULL");
 
     u64 i = 0;
@@ -562,8 +610,15 @@ char* getFEN(const Board* board, char* buffer, u64 size) {
         y /= 10;
     }
     buffer[i] = 0;
+
+    POP_STACK_TRACE();
+
     return buffer;
 
 fail: // Fail label
-    fprintf(stderr, "getFEN() failed: buffer size too small\n"); return NULL;
+    fprintf(stderr, "getFEN() failed: buffer size too small\n");
+
+    POP_STACK_TRACE();
+
+    return NULL;
 }
