@@ -55,6 +55,28 @@ bool testMagicBitboards() {
     return true;
 }
 
+void isMoveLegal(Board* board, Move m) {
+
+    PUSH_STACK_TRACE("isMoveLegal()");
+
+    std::string prevBoard = toString(board);
+    std::string prevFen = getSTDStringFEN(board);
+
+    UndoState state;
+    makeMove(board, m, &state);
+    Bitboard att = board->bb[board->side], attacked = 0ull;
+    while (att) {
+        u8 sq = popLSB(&att);
+        attacked |= getPieceAttakcs(board->mailbox[sq], sq, board->side, board->all);
+    }
+    char buf[1024];
+    snprintf(buf, 1024, "isMoveLegal() failed: move %s, flag %u leaves the king in check after being made\nBoard:\n%s\nFEN: %s\n", getSTDStringMove(m).c_str(), moveFlag(m), prevBoard.c_str(), prevFen.c_str());
+    ASSERT_MSG(!(attacked & board->bb[KING | (board->side ^ 1u)]), buf);
+    unmakeMove(board, m, &state);
+
+    POP_STACK_TRACE();
+}
+
 u64 perft(Board* board, u32 depth) {
     if (depth == 0) return 1;
 
@@ -74,6 +96,7 @@ u64 perft(Board* board, u32 depth) {
     UndoState state;
     u64 nodes = 0;
     for (u64 i = 0; i < legalCount; i++) {
+        isMoveLegal(board, legal[i]);
         makeMove(board, legal[i], &state);
         nodes += perft(board, depth - 1);
         unmakeMove(board, legal[i], &state);
@@ -82,6 +105,34 @@ u64 perft(Board* board, u32 depth) {
     POP_STACK_TRACE();
 
     return nodes;
+}
+
+void extendedPerft(Board* board, u32 depth, u64* nodes, u64* captures, u64* ep) {
+    if (depth == 0) {
+        *nodes += 1;
+        return;
+    }
+
+    PUSH_STACK_TRACE("extendedPerft()");
+
+    u64 legalCount;
+    Move legal[MAX_LEGAL_MOVES];
+    generateLegalMoves(board, legal, &legalCount);
+
+    UndoState state;
+    for (u64 i = 0; i < legalCount; i++) {
+        isMoveLegal(board, legal[i]);
+        makeMove(board, legal[i], &state);
+        extendedPerft(board, depth - 1, nodes, captures, ep);
+        switch (moveFlag(legal[i])) {
+            case MOVE_CAPTURE: *captures += 1; break;
+            case MOVE_EP_CAPTURE: *captures += 1; *ep += 1; break;
+            default: break;
+        }
+        unmakeMove(board, legal[i], &state);
+    }
+
+    POP_STACK_TRACE();
 }
 
 i32 main() {
@@ -146,9 +197,16 @@ i32 main() {
             u32 depth;
             std::cin >> depth;
             auto start = std::chrono::high_resolution_clock::now();
-            u64 nodes = perft(board, depth);
+            u64 nodes = 0, captures = 0, ep = 0;
+            extendedPerft(board, depth, &nodes, &captures, &ep);
             u64 elapsed = std::chrono::duration<u64, std::nano>(std::chrono::high_resolution_clock::now() - start).count();
-            std::cout << "Perft depth " << depth << ", position: FEN: " << getSTDStringFEN(board) << ", nodes: " << nodes << ", NPS: " << nodes * 1000000000 / elapsed << "\n";
+            std::cout <<
+                "Perft depth " << depth <<
+                ", position: FEN: " << getSTDStringFEN(board) <<
+                ", nodes: " << nodes <<
+                ", NPS: " << nodes * 1000000000 / elapsed <<
+                ", captures: " << captures <<
+                ", ep: " << ep << "\n";
             continue;
         } else if (input == "undo") {
             if (moveIdx == 0) continue;

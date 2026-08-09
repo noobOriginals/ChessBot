@@ -19,6 +19,7 @@ Bitboard getSlidingAttacks(u8 square, Bitboard occupancy, i8 fileDir, i8 rankDir
 Bitboard getBishopAttacksSlow(u8 square, Bitboard occupancy);
 Bitboard getRookAttacksSlow(u8 square, Bitboard occupancy);
 Bitboard getQueenAttacksSlow(u8 square, Bitboard occupancy);
+Bitboard getPieceAttakcsSlow(u8 piece, u8 square, u8 side, Bitboard occupancy);
 
 // Fast, precomputed aproach
 Bitboard getPawnAttacks(u8 square, u8 side);
@@ -27,6 +28,7 @@ Bitboard getBishopAttacks(u8 square, Bitboard occupancy);
 Bitboard getRookAttacks(u8 square, Bitboard occupancy);
 Bitboard getQueenAttacks(u8 square, Bitboard occupancy);
 Bitboard getKingAttacks(u8 square);
+Bitboard getPieceAttakcs(u8 piece, u8 square, u8 side, Bitboard occupancy);
 
 // Bulk generation of pawn pushed
 Bitboard getPawnPushes(Bitboard bitboard, Bitboard occupancy, u8 side);

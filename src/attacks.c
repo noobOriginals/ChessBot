@@ -181,6 +181,25 @@ Bitboard getQueenAttacksSlow(u8 square, Bitboard occupancy) {
     return getBishopAttacksSlow(square, occupancy) | getRookAttacksSlow(square, occupancy);
 }
 
+Bitboard getPieceAttakcsSlow(u8 piece, u8 square, u8 side, Bitboard occupancy) {
+
+    PUSH_STACK_TRACE("getPieceAttakcsSlow()");
+    ASSERT_MSG(piece > 1 && piece < 14, "getPieceAttakcsSlow() failed: piece type out of bounds");
+    ASSERT_MSG(square < 64, "getPieceAttakcsSlow() failed: square index out of bounds");
+    ASSERT_MSG(side < 2, "getPieceAttakcsSlow() failed: side can only have the value 0 (zero) or 1 (one)");
+    POP_STACK_TRACE();
+
+    switch (ptype(piece)) {
+        case PAWN: return getPawnAttacks(square, side);
+        case KNIGHT: return getKnightAttacks(square);
+        case BISHOP: return getBishopAttacksSlow(square, occupancy);
+        case ROOK: return getRookAttacksSlow(square, occupancy);
+        case QUEEN: return getQueenAttacksSlow(square, occupancy);
+        case KING: return getKingAttacks(square);
+        default: return 0ull;
+    }
+}
+
 // Fast, precomputed aproach
 Bitboard getPawnAttacks(u8 square, u8 side) {
 
@@ -245,6 +264,25 @@ Bitboard getKingAttacks(u8 square) {
     POP_STACK_TRACE();
 
     return kingAttacks[square];
+}
+
+Bitboard getPieceAttakcs(u8 piece, u8 square, u8 side, Bitboard occupancy) {
+
+    PUSH_STACK_TRACE("getPieceAttakcs()");
+    ASSERT_MSG(piece > 1 && piece < 14, "getPieceAttakcs() failed: piece type out of bounds");
+    ASSERT_MSG(square < 64, "getPieceAttakcs() failed: square index out of bounds");
+    ASSERT_MSG(side < 2, "getPieceAttakcs() failed: side can only have the value 0 (zero) or 1 (one)");
+    POP_STACK_TRACE();
+
+    switch (ptype(piece)) {
+        case PAWN: return getPawnAttacks(square, side);
+        case KNIGHT: return getKnightAttacks(square);
+        case BISHOP: return getBishopAttacks(square, occupancy);
+        case ROOK: return getRookAttacks(square, occupancy);
+        case QUEEN: return getQueenAttacks(square, occupancy);
+        case KING: return getKingAttacks(square);
+        default: return 0ull;
+    }
 }
 
 // Bulk generation of pawn pushed
