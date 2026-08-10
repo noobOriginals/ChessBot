@@ -11,129 +11,10 @@
 #include "debug_utils.h"
 
 #include "cppvisuals.hpp"
+#include "unit_tests.hpp"
 
 #define TEST_FEN_1 "r1bqkbnr/pppp1ppp/2n5/8/2PpP3/5N2/PP3PPP/RNBQKB1R b KQkq c3 0 4"
 #define TEST_FEN_2 "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3"
-
-bool assertBitboards(Bitboard actual, Bitboard expected) {
-    if (actual != expected) {
-        std::cerr << "assertBitboards() failed!\nExpected:\n" << toString(expected) << "\nGot:\n" << toString(actual) << "\n";
-        return false;
-    }
-    return true;
-}
-
-bool testMagicBitboards() {
-    std::cout << "Testing bishop bitboards:\n";
-    for (u32 sq = 0; sq < 64; sq++) {
-        Bitboard mask = getBishopAttacksSlow(sq, 0ull);
-        Bitboard subset = 0ull;
-        do {
-            if (!assertBitboards(getBishopAttacks(sq, mask), getBishopAttacksSlow(sq, mask))) {
-                std::cerr << "Test failed at square " << sq << "\n";
-                return false;
-            }
-            subset = (subset - mask) & mask;
-        } while (subset != 0ull);
-        std::cout << "Square " << sq << " passed\n";
-    }
-
-    std::cout << "\nTesting rook bitboards:\n";
-    for (u32 sq = 0; sq < 64; sq++) {
-        Bitboard mask = getRookAttacksSlow(sq, 0ull);
-        Bitboard subset = 0ull;
-        do {
-            if (!assertBitboards(getRookAttacks(sq, mask), getRookAttacksSlow(sq, mask))) {
-                std::cerr << "Test failed at square " << sq << "\n";
-                return false;
-            }
-            subset = (subset - mask) & mask;
-        } while (subset != 0ull);
-        std::cout << "Square " << sq << " passed\n";
-    }
-
-    return true;
-}
-
-void isMoveLegal(Board* board, Move m) {
-
-    PUSH_STACK_TRACE("isMoveLegal()");
-
-    std::string prevBoard = toString(board);
-    std::string prevFen = getSTDStringFEN(board);
-
-    UndoState state;
-    makeMove(board, m, &state);
-    Bitboard att = board->bb[board->side], attacked = 0ull;
-    while (att) {
-        u8 sq = popLSB(&att);
-        attacked |= getPieceAttakcs(board->mailbox[sq], sq, board->side, board->all);
-    }
-    char buf[1024];
-    snprintf(buf, 1024, "isMoveLegal() failed: move %s, flag %u leaves the king in check after being made\nBoard:\n%s\nFEN: %s\n", getSTDStringMove(m).c_str(), moveFlag(m), prevBoard.c_str(), prevFen.c_str());
-    ASSERT_MSG(!(attacked & board->bb[KING | (board->side ^ 1u)]), buf);
-    unmakeMove(board, m, &state);
-
-    POP_STACK_TRACE();
-}
-
-u64 perft(Board* board, u32 depth) {
-    if (depth == 0) return 1;
-
-    PUSH_STACK_TRACE("perft()");
-
-    u64 legalCount;
-    Move legal[MAX_LEGAL_MOVES];
-    generateLegalMoves(board, legal, &legalCount);
-
-    if (depth == 1) {
-
-        POP_STACK_TRACE();
-
-        return legalCount;
-    }
-
-    UndoState state;
-    u64 nodes = 0;
-    for (u64 i = 0; i < legalCount; i++) {
-        isMoveLegal(board, legal[i]);
-        makeMove(board, legal[i], &state);
-        nodes += perft(board, depth - 1);
-        unmakeMove(board, legal[i], &state);
-    }
-
-    POP_STACK_TRACE();
-
-    return nodes;
-}
-
-void extendedPerft(Board* board, u32 depth, u64* nodes, u64* captures, u64* ep) {
-    if (depth == 0) {
-        *nodes += 1;
-        return;
-    }
-
-    PUSH_STACK_TRACE("extendedPerft()");
-
-    u64 legalCount;
-    Move legal[MAX_LEGAL_MOVES];
-    generateLegalMoves(board, legal, &legalCount);
-
-    UndoState state;
-    for (u64 i = 0; i < legalCount; i++) {
-        isMoveLegal(board, legal[i]);
-        makeMove(board, legal[i], &state);
-        extendedPerft(board, depth - 1, nodes, captures, ep);
-        switch (moveFlag(legal[i])) {
-            case MOVE_CAPTURE: *captures += 1; break;
-            case MOVE_EP_CAPTURE: *captures += 1; *ep += 1; break;
-            default: break;
-        }
-        unmakeMove(board, legal[i], &state);
-    }
-
-    POP_STACK_TRACE();
-}
 
 i32 main() {
     initBitboard();
@@ -180,12 +61,12 @@ i32 main() {
     }
 
     // Loop
-    u64 legalCount;
+    u32 legalCount;
     Move legalMoves[MAX_LEGAL_MOVES];
     while (true) {
         std::cout << board << "\n";
         std::cout << "Board: FEN: " << getSTDStringFEN(board) << "\n";
-        generateLegalMoves(board, legalMoves, &legalCount);
+        getLegalMoves(board, legalMoves, &legalCount);
         std::cout << "Board: " << legalCount << " pseudo-legal moves: ";
         for (u64 i = 0; i < legalCount; i++) std::cout << getSTDStringMove(legalMoves[i]) << " ";
         std::cout << "\n";
@@ -197,21 +78,44 @@ i32 main() {
             u32 depth;
             std::cin >> depth;
             auto start = std::chrono::high_resolution_clock::now();
-            u64 nodes = 0, captures = 0, ep = 0;
-            extendedPerft(board, depth, &nodes, &captures, &ep);
-            u64 elapsed = std::chrono::duration<u64, std::nano>(std::chrono::high_resolution_clock::now() - start).count();
+            u64 nodes = unit_test::perft(board, depth);
+            u64 elapsed = std::chrono::duration<u64, std::nano>(std::chrono::high_resolution_clock::now() - start).count() / 1000;
             std::cout <<
-                "Perft depth " << depth <<
-                ", position: FEN: " << getSTDStringFEN(board) <<
-                ", nodes: " << nodes <<
-                ", NPS: " << nodes * 1000000000 / elapsed <<
-                ", captures: " << captures <<
-                ", ep: " << ep << "\n";
+                "\nLegacy perft, depth " << depth <<
+                "\nPosition FEN: " << getSTDStringFEN(board) <<
+                "\nNodes: " << nodes <<
+                "\nNPS: " << nodes * 1000000 / elapsed << "\n\n";
+            continue;
+        } else if (input == "experft") {
+            u32 depth;
+            std::cin >> depth;
+            u64 nodes = 0, captures = 0, ep = 0, castle = 0, promo = 0;
+            auto start = std::chrono::high_resolution_clock::now();
+            unit_test::extendedPerft(board, depth, nodes, captures, ep, castle, promo);
+            u64 elapsed = std::chrono::duration<u64, std::nano>(std::chrono::high_resolution_clock::now() - start).count() / 1000;
+            std::cout <<
+                "\nExtended perft, depth " << depth <<
+                "\nPosition FEN: " << getSTDStringFEN(board) <<
+                "\nNodes       : " << nodes <<
+                "\nNPS         : " << nodes * 1000000 / elapsed <<
+                "\nCaptures    : " << captures <<
+                "\nEp          : " << ep <<
+                "\nCastles     : " << castle <<
+                "\nPromotions  : " << promo << "\n\n";
             continue;
         } else if (input == "undo") {
             if (moveIdx == 0) continue;
             moveIdx--;
             unmakeMove(board, moves[moveIdx], &undo[moveIdx]);
+            continue;
+        } else if (input == "print") {
+            Bitboard def = board->bb[board->side];
+            std::cout << toString(def) << "\n";
+            while (def) {
+                Bitboard lsb;
+                u8 sq = popToLSB(&def, &lsb);
+                std::cout << "Square " << (u32) sq << "\n" << toString(getPieceAttakcs(board->mailbox[sq], sq, board->side, board->all)) << "\n";
+            }
             continue;
         } else if (input == "redo") {
             makeMove(board, moves[moveIdx], &undo[moveIdx]);

@@ -49,7 +49,7 @@ static void initBishopAttacks(void) {
     for (u8 sq = 0; sq < 64; sq++) {
         // Compute relevant occupancy masks and bits
         bishopMask[sq] = getBishopAttacksSlow(sq, 0ull) & ~(RANK_1 | RANK_8 | FILE_A | FILE_H);
-        bishopShift[sq] = 64 - popcountll(bishopMask[sq]);
+        bishopShift[sq] = (u8) (64 - popcountll(bishopMask[sq]));
 
         // Init all possible attacks
         u64 index, lastIndex = 0;
@@ -74,7 +74,7 @@ static void initRookAttacks(void) {
         rookMask[sq] =
             ((getSlidingAttacks(sq, 0ull, 0, 1) | getSlidingAttacks(sq, 0ull, 0, -1)) & ~(RANK_1 | RANK_8)) |
             ((getSlidingAttacks(sq, 0ull, 1, 0) | getSlidingAttacks(sq, 0ull, -1, 0)) & ~(FILE_A | FILE_H));
-        rookShift[sq] = 64 - popcountll(rookMask[sq]);
+        rookShift[sq] = (u8) (64 - popcountll(rookMask[sq]));
 
         // Init all possible attacks
         u64 index, lastIndex = 0;
