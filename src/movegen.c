@@ -235,8 +235,35 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
     unpackPromoPushes(bb1 & (RANK_1 | RANK_8), pushDist, pinned, pinMask, moves, count);
     unpackDoublePushes(bb2 & target, pushDist * 2, pinned, pinMask, moves, count);
 
-    // Castle magic
-    bb1 = side ? BLACK_KC | BLACK_QC : WHITE_KC | WHITE_QC;
+    /* Castle magic
+    King
+    (board->castle & WHITE_KC) << 3 — Castle square
+    (7 << 4) & attacked — Attack mask, must be 0
+    (3 << 5) & board->all — Occupnacy mask, must be 0
+    Queen:
+    board->castle & WHITE_QC — Castle square
+    (7 << 2) & attacked — Attack mask, must be 0
+    (7 << 1) & board->all — Occupnacy mask, must be 0 */
+    bb1 = bb2 = 0ull;
+    switch (side) {
+        case WHITE:
+            if (!((7ull << 4) & attacked) && !((3ull << 5) & board->all)) bb1 = (Bitboard) (board->castle & WHITE_KC) << 3;
+            if (!((7ull << 2) & attacked) && !((7ull << 1) & board->all)) bb2 = (Bitboard) (board->castle & WHITE_QC);
+            break;
+
+        case BLACK:
+            if (!((7ull << 60) & attacked) && !((3ull << 61) & board->all)) bb1 = (Bitboard) (board->castle & BLACK_KC) << 61;
+            if (!((7ull << 58) & attacked) && !((7ull << 57) & board->all)) bb2 = (Bitboard) (board->castle & BLACK_QC) << 58;
+            break;
+    }
+    if (bb1) {
+        moves[*count] = (Move) kingsq | ((Move) ctzll(bb1) << 6) | ((Move) MOVE_CASTLE_K << 12);
+        *count += 1;
+    }
+    if (bb2) {
+        moves[*count] = (Move) kingsq | ((Move) ctzll(bb2) << 6) | ((Move) MOVE_CASTLE_Q << 12);
+        *count += 1;
+    }
 
     // En passant magic
     if (target & epPawn) {
