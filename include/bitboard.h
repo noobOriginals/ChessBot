@@ -1,7 +1,10 @@
 #ifndef BITBOARD_H
 #define BITBOARD_H
 
+#include <stdlib.h>
+
 #include "types.h"
+#include "debug_utils.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -39,20 +42,60 @@ extern "C" {
 
 typedef u64 Bitboard;
 
+// Diagonals masks indexed by square(s) for between() method
+extern Bitboard betweenTable[4096];
+
 // Init static values
 void initBitboard(void);
 
 // Pop least significant set bit and return its index
-u8 popLSB(Bitboard* bb);
+inline u8 popLSB(Bitboard* bb) {
+
+    PUSH_STACK_TRACE("popLSB()");
+    ASSERT_MSG(bb, "popLSB() failed: bitboard pointer cannot be NULL");
+    ASSERT_MSG(*bb, "popLSB() failed: bitboard cannot be zero");
+    POP_STACK_TRACE();
+
+    u8 sq = (u8) ctzll(*bb);
+    *bb ^= bbsq(sq);
+    return sq;
+}
 
 // popLSB but also return the popped bit's bitboard
-u8 popToLSB(Bitboard* bb, Bitboard* lsb);
+inline u8 popToLSB(Bitboard* bb, Bitboard* lsb) {
+
+    PUSH_STACK_TRACE("popToLSB()");
+    ASSERT_MSG(bb, "popLSB() failed: bitboard pointer cannot be NULL");
+    ASSERT_MSG(*bb, "popLSB() failed: bitboard cannot be zero");
+    POP_STACK_TRACE();
+
+    u8 sq = (u8) ctzll(*bb);
+    *lsb = bbsq(sq);
+    *bb ^= *lsb;
+    return sq;
+}
 
 // Get the ray between two biboard squares
-Bitboard betweenBB(Bitboard a, Bitboard b);
+inline Bitboard betweenBB(Bitboard a, Bitboard b) {
+
+    PUSH_STACK_TRACE("betweenBB()");
+    ASSERT_MSG(a, "betweenBB() failed: bitboard 'a' cannot be zero");
+    ASSERT_MSG(b, "betweenBB() failed: bitboard 'b' cannot be zero");
+    POP_STACK_TRACE();
+
+    return betweenTable[(ctzll(a) << 6) + ctzll(b)];
+}
 
 // Get the ray between two index squares
-Bitboard betweenSQ(u8 a, u8 b);
+inline Bitboard betweenSQ(u8 a, u8 b) {
+
+    PUSH_STACK_TRACE("betweenSQ()");
+    ASSERT_MSG(a < 64, "betweenSQ() failed: square index 'a' cannot be greater than 63");
+    ASSERT_MSG(b < 64, "betweenSQ() failed: square index 'b' cannot be greater than 63");
+    POP_STACK_TRACE();
+
+    return betweenTable[(a << 6) + b];
+}
 
 #if defined(__cplusplus)
 } // extern "C"

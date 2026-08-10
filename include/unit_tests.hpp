@@ -13,6 +13,8 @@
 
 #include "cppvisuals.hpp"
 
+#define MAX_DEPTH 128
+
 namespace unit_test {
 
 inline bool assertBitboards(Bitboard actual, Bitboard expected) {
@@ -83,6 +85,7 @@ inline u64 perft(Board* board, u32 depth) {
 }
 
 // bench() is the real legay perft. No bulk counting not anything other than PURE COMPUTE BABY!
+Move benchMoves[MAX_DEPTH][MAX_LEGAL_MOVES];
 inline u64 bench(Board* board, u32 depth) {
     if (depth == 0) {
         return 1;
@@ -91,14 +94,13 @@ inline u64 bench(Board* board, u32 depth) {
     PUSH_STACK_TRACE("bench()");
 
     u32 count;
-    Move moves[MAX_LEGAL_MOVES];
-    getLegalMoves(board, moves, &count);
+    getLegalMoves(board, benchMoves[depth], &count);
     u64 nodes = 0;
     UndoState state;
     for (u32 i = 0; i < count; i++) {
-        makeMove(board, moves[i], &state);
+        makeMove(board, benchMoves[depth][i], &state);
         nodes += bench(board, depth - 1);
-        unmakeMove(board, moves[i], &state);
+        unmakeMove(board, benchMoves[depth][i], &state);
     }
 
     POP_STACK_TRACE();

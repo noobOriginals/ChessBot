@@ -48,7 +48,7 @@ void unpackPromoCaptures(u8 from, Bitboard attacks, Move* moves, u32* count) {
     POP_STACK_TRACE();
 }
 
-void unpackPushes(Bitboard pushes, i8 dist, Bitboard pinned, Bitboard pinMask[64], Move* moves, u32* count) {
+void unpackPushes(Bitboard pushes, i8 dist, Bitboard pinMask[64], Move* moves, u32* count) {
 
     PUSH_STACK_TRACE("unpackPushes()");
 
@@ -60,7 +60,7 @@ void unpackPushes(Bitboard pushes, i8 dist, Bitboard pinned, Bitboard pinMask[64
         from = to - dist;
 
         // Check for pins
-        if (pinned & bbsq(from) && ~pinMask[from] & lsb) {
+        if (~pinMask[from] & lsb) {
             continue;
         }
 
@@ -71,7 +71,7 @@ void unpackPushes(Bitboard pushes, i8 dist, Bitboard pinned, Bitboard pinMask[64
     POP_STACK_TRACE();
 }
 
-void unpackPromoPushes(Bitboard pushes, i8 dist, Bitboard pinned, Bitboard pinMask[64], Move* moves, u32* count) {
+void unpackPromoPushes(Bitboard pushes, i8 dist, Bitboard pinMask[64], Move* moves, u32* count) {
 
     PUSH_STACK_TRACE("unpackPromoPushes()");
 
@@ -84,7 +84,7 @@ void unpackPromoPushes(Bitboard pushes, i8 dist, Bitboard pinned, Bitboard pinMa
         from = to - dist;
 
         // Check for pins
-        if (pinned & bbsq(from) && ~pinMask[from] & lsb) {
+        if (~pinMask[from] & lsb) {
             continue;
         }
 
@@ -99,7 +99,7 @@ void unpackPromoPushes(Bitboard pushes, i8 dist, Bitboard pinned, Bitboard pinMa
     POP_STACK_TRACE();
 }
 
-void unpackDoublePushes(Bitboard pushes, i8 dist, Bitboard pinned, Bitboard pinMask[64], Move* moves, u32* count) {
+void unpackDoublePushes(Bitboard pushes, i8 dist, Bitboard pinMask[64], Move* moves, u32* count) {
 
     PUSH_STACK_TRACE("unpackDoublePushes()");
 
@@ -111,7 +111,7 @@ void unpackDoublePushes(Bitboard pushes, i8 dist, Bitboard pinned, Bitboard pinM
         from = to - dist;
 
         // Check for pins
-        if (pinned & bbsq(from) && ~pinMask[from] & lsb) {
+        if (~pinMask[from] & lsb) {
             continue;
         }
 
@@ -144,7 +144,10 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
     u8 square = 0u, piece = 0u, sq2 = 0u;
 
     // Compute
-    Bitboard checkers = 0ull, oppSliders = 0ull, attacked = 0ull, pinned = 0ull, pinMask[64];
+    Bitboard checkers = 0ull, oppSliders = 0ull, attacked = 0ull, pinMask[64];
+    for (u8 i = 0; i < 64; i++) {
+        pinMask[i] = ~0ull;
+    }
 
     while (attackers) {
         attacks = 0ull;
@@ -168,12 +171,11 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
             checkers |= lsb;
         }
 
-        // Pinned pieces
+        //  pieces
         if (target & king) {
             bb1 = betweenSQ(square, kingsq);
             bb2 = bb1 & board->all;
             if (popcountll(bb2) == 1ull && (bb2 & defenders)) {
-                pinned |= bb2;
                 pinMask[ctzll(bb2)] = bb1 | lsb;
             }
         }
@@ -200,27 +202,21 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
         square = popToLSB(&defenders, &lsb);
         piece = ptype(board->mailbox[square]);
         switch (piece) {
-            case PAWN: attacks = getPawnAttacks(square, side) & target & attackers; break;
+            case PAWN:
+                // Special unpack for pawns
+                // Needs extra promotion unpack (last rank reached)
+                // But pawn attacks must always be captures, so the quiet unpack is no longer needed
+                attacks = getPawnAttacks(square, side) & target & attackers;
+                unpackCaptures(square, attacks & pinMask[square] & ~(RANK_1 | RANK_8), moves, count);
+                unpackPromoCaptures(square, attacks & pinMask[square] & (RANK_1 | RANK_8), moves, count);
+                continue;
+
             case KNIGHT: attacks = getKnightAttacks(square) & target; break;
             case BISHOP: attacks = getBishopAttacks(square, board->all) & target; break;
             case ROOK: attacks = getRookAttacks(square, board->all) & target; break;
             case QUEEN: attacks = getQueenAttacks(square, board->all) & target; break;
             case KING: attacks = getKingAttacks(square) & ~attacked & notDefenders; break;
             default: ASSERT_MSG(0, "getLegalMoves() failed: invalid piece type"); break;
-        }
-
-        // Update pin mask if piece is not pinned
-        if (~pinned & lsb) {
-            pinMask[square] = ~0ull;
-        }
-
-        // Special unpack for pawns
-        // Needs extra promotion unpack (last rank reached)
-        // But pawn attacks must always be captures, so the quiet unpack is no longer needed
-        if (piece == PAWN) {
-            unpackCaptures(square, attacks & pinMask[square] & ~(RANK_1 | RANK_8), moves, count);
-            unpackPromoCaptures(square, attacks & pinMask[square] & (RANK_1 | RANK_8), moves, count);
-            continue;
         }
 
         // Unpack into move array
@@ -233,9 +229,9 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
     bb1 = getPawnPushes(board->bb[PAWN | side], board->all, side);
     bb2 = getPawnPushes(bb1 & (side ? RANK_6 : RANK_3), board->all, side);
     bb1 &= target;
-    unpackPushes(bb1 & ~(RANK_1 | RANK_8), pushDist, pinned, pinMask, moves, count);
-    unpackPromoPushes(bb1 & (RANK_1 | RANK_8), pushDist, pinned, pinMask, moves, count);
-    unpackDoublePushes(bb2 & target, pushDist * 2, pinned, pinMask, moves, count);
+    unpackPushes(bb1 & ~(RANK_1 | RANK_8), pushDist, pinMask, moves, count);
+    unpackPromoPushes(bb1 & (RANK_1 | RANK_8), pushDist, pinMask, moves, count);
+    unpackDoublePushes(bb2 & target, pushDist * 2, pinMask, moves, count);
 
     // Castle magic
     // King
