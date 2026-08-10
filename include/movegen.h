@@ -12,6 +12,7 @@ extern "C" {
 
 // Utility for movegen
 void unpackStandardAttacks(u8 from, Bitboard attacks, Bitboard attackers, Move* moves, u32* count);
+void unpackPawnAttacks(u8 from, Bitboard attacks, Move* moves, u32* count);
 void unpackPawnPushes(Bitboard pushes, i8 dist, Bitboard pinned, Bitboard pinMask[64], Move* moves, u32* count);
 
 // Legal movegen method
