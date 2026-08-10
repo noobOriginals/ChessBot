@@ -82,11 +82,62 @@ inline u64 perft(Board* board, u32 depth) {
     return nodes;
 }
 
-inline void extendedPerft(Board* board, u32 depth, u64& nodes, u64& capt, u64& ep, u64& castle, u64& promo) {
+// bench() is the real legay perft. No bulk counting not anything other than PURE COMPUTE BABY!
+inline u64 bench(Board* board, u32 depth) {
     if (depth == 0) {
-        nodes++;
-        return;
+        return 1;
     }
+
+    PUSH_STACK_TRACE("bench()");
+
+    u32 count;
+    Move moves[MAX_LEGAL_MOVES];
+    getLegalMoves(board, moves, &count);
+    u64 nodes = 0;
+    UndoState state;
+    for (u32 i = 0; i < count; i++) {
+        makeMove(board, moves[i], &state);
+        nodes += bench(board, depth - 1);
+        unmakeMove(board, moves[i], &state);
+    }
+
+    POP_STACK_TRACE();
+
+    return nodes;
+}
+
+inline Bitboard getAttackersTo(Board* board, Bitboard bb) {
+    u8 square = ctzll(bb);
+    u8 piece = board->mailbox[square];
+    if (!piece) return 0ull;
+    u8 opp = pside(piece) ^ 1u;
+    Bitboard attackers = board->bb[opp], fin = 0ull;
+    while (attackers) {
+        Bitboard lsb;
+        u8 sq = popToLSB(&attackers, &lsb);
+        Bitboard attacks = getPieceAttakcs(board->mailbox[sq], sq, opp, board->all);
+        if (attacks & bb) fin |= lsb;
+    }
+    return fin;
+}
+
+struct ExtendedPerftResults {
+    u64 nodes = 0, captures = 0, ep = 0, castles = 0, promotions = 0, checks = 0, discoveryChecks = 0, doubleChecks = 0, checkmates = 0;
+    ExtendedPerftResults& operator+=(const ExtendedPerftResults& other) {
+        nodes += other.nodes;
+        captures += other.captures;
+        ep += other.ep;
+        castles += other.castles;
+        promotions += other.promotions;
+        checks += other.checks;
+        discoveryChecks += other.discoveryChecks;
+        doubleChecks += other.doubleChecks;
+        checkmates += other.checkmates;
+        return *this;
+    }
+};
+
+inline ExtendedPerftResults extendedPerft(Board* board, u32 depth) {
 
     PUSH_STACK_TRACE("extendedPerft()");
 
@@ -94,44 +145,67 @@ inline void extendedPerft(Board* board, u32 depth, u64& nodes, u64& capt, u64& e
     Move moves[MAX_LEGAL_MOVES];
     getLegalMoves(board, moves, &count);
 
-    if (depth == 1) {
-        nodes += count;
+    UndoState state;
+    ExtendedPerftResults res;
+
+    if (depth <= 1) {
+        res.nodes += count;
         for (u32 i = 0; i < count; i++) {
             switch (moveFlag(moves[i])) {
-                case MOVE_CAPTURE: capt++; break;
+                case MOVE_CAPTURE: res.captures++; break;
 
                 case MOVE_PROMO_N:
                 case MOVE_PROMO_B:
                 case MOVE_PROMO_R:
-                case MOVE_PROMO_Q: promo++; break;
+                case MOVE_PROMO_Q: res.promotions++; break;
 
                 case MOVE_PROMO_CAPTURE_N:
                 case MOVE_PROMO_CAPTURE_B:
                 case MOVE_PROMO_CAPTURE_R:
-                case MOVE_PROMO_CAPTURE_Q: capt++; promo++; break;
+                case MOVE_PROMO_CAPTURE_Q: res.captures++; res.promotions++; break;
 
-                case MOVE_EP_CAPTURE: capt++; ep++; break;
+                case MOVE_EP_CAPTURE: res.captures++; res.ep++; break;
 
                 case MOVE_CASTLE_K:
-                case MOVE_CASTLE_Q: castle++; break;
+                case MOVE_CASTLE_Q: res.castles++; break;
 
                 default: break;
             }
+
+            makeMove(board, moves[i], &state);
+            Bitboard checkers = getAttackersTo(board, board->bb[KING | board->side]);
+            if (popcountll(checkers) == 2) {
+                res.checks++;
+                res.doubleChecks++;
+            } else if (checkers & bbsq(moveTo(moves[i]))) {
+                res.checks++;
+            } else if (checkers) {
+                res.checks++;
+                res.discoveryChecks++;
+            }
+            u32 dummyCount = 0;
+            Move dummy[MAX_LEGAL_MOVES];
+            getLegalMoves(board, dummy, &dummyCount);
+            if (!dummyCount) {
+                res.checkmates++;
+            }
+            unmakeMove(board, moves[i], &state);
         }
 
         POP_STACK_TRACE();
 
-        return;
+        return res;
     }
 
-    UndoState state;
     for (u32 i = 0; i < count; i++) {
         makeMove(board, moves[i], &state);
-        extendedPerft(board, depth - 1, nodes, capt, ep, castle, promo);
+        res += extendedPerft(board, depth - 1);
         unmakeMove(board, moves[i], &state);
     }
 
     POP_STACK_TRACE();
+
+    return res;
 }
 
 }

@@ -74,6 +74,20 @@ i32 main() {
         std::cin >> input;
         if (input == "quit" || input == "q") {
             return 0;
+        } else if (input == "bench") {
+            u32 depth;
+            std::cin >> depth;
+            auto start = std::chrono::high_resolution_clock::now();
+            u64 nodes = unit_test::bench(board, depth);
+            u64 elapsed = std::chrono::duration<u64, std::nano>(std::chrono::high_resolution_clock::now() - start).count() / 1000;
+            std::cout <<
+                "\nBench results =>" <<
+                "\nFEN              : " << getSTDStringFEN(board) <<
+                "\nDepth            : " << depth <<
+                "\nTime             : " << elapsed / 1000000.0 << "s" <<
+                "\nNPS              : " << nodes * 1000000 / elapsed <<
+                "\nNodes            : " << nodes << "\n\n";
+            continue;
         } else if (input == "perft") {
             u32 depth;
             std::cin >> depth;
@@ -81,27 +95,32 @@ i32 main() {
             u64 nodes = unit_test::perft(board, depth);
             u64 elapsed = std::chrono::duration<u64, std::nano>(std::chrono::high_resolution_clock::now() - start).count() / 1000;
             std::cout <<
-                "\nLegacy perft, depth " << depth <<
-                "\nPosition FEN: " << getSTDStringFEN(board) <<
-                "\nNodes: " << nodes <<
-                "\nNPS: " << nodes * 1000000 / elapsed << "\n\n";
+                "\nLegacy Perft results =>" <<
+                "\nFEN              : " << getSTDStringFEN(board) <<
+                "\nDepth            : " << depth <<
+                "\nNPS              : " << nodes * 1000000 / elapsed <<
+                "\nNodes            : " << nodes << "\n\n";
             continue;
         } else if (input == "experft") {
             u32 depth;
             std::cin >> depth;
-            u64 nodes = 0, captures = 0, ep = 0, castle = 0, promo = 0;
             auto start = std::chrono::high_resolution_clock::now();
-            unit_test::extendedPerft(board, depth, nodes, captures, ep, castle, promo);
+            unit_test::ExtendedPerftResults perftRes = unit_test::extendedPerft(board, depth);
             u64 elapsed = std::chrono::duration<u64, std::nano>(std::chrono::high_resolution_clock::now() - start).count() / 1000;
             std::cout <<
-                "\nExtended perft, depth " << depth <<
-                "\nPosition FEN: " << getSTDStringFEN(board) <<
-                "\nNodes       : " << nodes <<
-                "\nNPS         : " << nodes * 1000000 / elapsed <<
-                "\nCaptures    : " << captures <<
-                "\nEp          : " << ep <<
-                "\nCastles     : " << castle <<
-                "\nPromotions  : " << promo << "\n\n";
+                "\nExtended Perft results =>" <<
+                "\nFEN              : " << getSTDStringFEN(board) <<
+                "\nDepth            : " << depth <<
+                "\nNPS              : " << perftRes.nodes * 1000000 / elapsed <<
+                "\nNodes            : " << perftRes.nodes <<
+                "\nCaptures         : " << perftRes.captures <<
+                "\nEp               : " << perftRes.ep <<
+                "\nCastles          : " << perftRes.castles <<
+                "\nPromotions       : " << perftRes.promotions <<
+                "\nChecks           : " << perftRes.checks <<
+                "\nDiscovery Checks : " << perftRes.discoveryChecks <<
+                "\nDouble Checks    : " << perftRes.doubleChecks <<
+                "\nCheckmates       : " << perftRes.checkmates << "\n\n";
             continue;
         } else if (input == "undo") {
             if (moveIdx == 0) continue;

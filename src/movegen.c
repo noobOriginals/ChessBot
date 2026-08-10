@@ -191,6 +191,7 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
         return moves;
     }
 
+    // Target is either checker and ray between king - checker (if present), or any square without a defender onto it
     target = checkers ? betweenSQ((u8) ctzll(checkers), kingsq) | checkers : notDefenders;
     while (defenders) {
         attacks = 0ull;
@@ -223,6 +224,7 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
         }
 
         // Unpack into move array
+        // Use separate unpacking as it reduces code branches (i.e. the number of 'if's), speeding up execution
         unpackQuietMoves(square, attacks & pinMask[square] & notAttackers, moves, count);
         unpackCaptures(square, attacks & pinMask[square] & attackers, moves, count);
     }
@@ -235,15 +237,15 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
     unpackPromoPushes(bb1 & (RANK_1 | RANK_8), pushDist, pinned, pinMask, moves, count);
     unpackDoublePushes(bb2 & target, pushDist * 2, pinned, pinMask, moves, count);
 
-    /* Castle magic
-    King
-    (board->castle & WHITE_KC) << 3 — Castle square
-    (7 << 4) & attacked — Attack mask, must be 0
-    (3 << 5) & board->all — Occupnacy mask, must be 0
-    Queen:
-    board->castle & WHITE_QC — Castle square
-    (7 << 2) & attacked — Attack mask, must be 0
-    (7 << 1) & board->all — Occupnacy mask, must be 0 */
+    // Castle magic
+    // King
+    // (board->castle & WHITE_KC) << 3 — Castle square
+    // (7 << 4) & attacked — Attack mask, must be 0
+    // (3 << 5) & board->all — Occupnacy mask, must be 0
+    // Queen:
+    // board->castle & WHITE_QC — Castle square
+    // (7 << 2) & attacked — Attack mask, must be 0
+    // (7 << 1) & board->all — Occupnacy mask, must be 0
     bb1 = bb2 = 0ull;
     switch (side) {
         case WHITE:
@@ -264,6 +266,7 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
         moves[*count] = (Move) kingsq | ((Move) ctzll(bb2) << 6) | ((Move) MOVE_CASTLE_Q << 12);
         *count += 1;
     }
+    // I think that castling movegen can be optimized more but I didn't find a way yet
 
     // En passant magic
     if (target & epPawn) {
@@ -287,6 +290,7 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
                     case BISHOP: attacked |= getBishopAttacks(sq2, target); break;
                     case ROOK: attacked |= getRookAttacks(sq2, target); break;
                     case QUEEN: attacked |= getQueenAttacks(sq2, target); break;
+                    default: ASSERT_MSG(0, "getLegalMoves() failed: invalid piece type"); break;
                 }
             }
 
