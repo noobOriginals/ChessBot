@@ -49,7 +49,7 @@ extern Bitboard betweenTable[4096];
 void initBitboard(void);
 
 // Pop least significant set bit and return its index
-inline u8 popLSB(Bitboard* bb) {
+static inline u8 popLSB(Bitboard* bb) {
 
     PUSH_STACK_TRACE("popLSB()");
     ASSERT_MSG(bb, "popLSB() failed: bitboard pointer cannot be NULL");
@@ -62,7 +62,7 @@ inline u8 popLSB(Bitboard* bb) {
 }
 
 // popLSB but also return the popped bit's bitboard
-inline u8 popToLSB(Bitboard* bb, Bitboard* lsb) {
+static inline u8 popToLSB(Bitboard* bb, Bitboard* lsb) {
 
     PUSH_STACK_TRACE("popToLSB()");
     ASSERT_MSG(bb, "popLSB() failed: bitboard pointer cannot be NULL");
@@ -76,7 +76,7 @@ inline u8 popToLSB(Bitboard* bb, Bitboard* lsb) {
 }
 
 // Get the ray between two biboard squares
-inline Bitboard betweenBB(Bitboard a, Bitboard b) {
+static inline Bitboard betweenBB(Bitboard a, Bitboard b) {
 
     PUSH_STACK_TRACE("betweenBB()");
     ASSERT_MSG(a, "betweenBB() failed: bitboard 'a' cannot be zero");
@@ -87,7 +87,7 @@ inline Bitboard betweenBB(Bitboard a, Bitboard b) {
 }
 
 // Get the ray between two index squares
-inline Bitboard betweenSQ(u8 a, u8 b) {
+static inline Bitboard betweenSQ(u8 a, u8 b) {
 
     PUSH_STACK_TRACE("betweenSQ()");
     ASSERT_MSG(a < 64, "betweenSQ() failed: square index 'a' cannot be greater than 63");

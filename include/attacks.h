@@ -44,7 +44,7 @@ Bitboard getQueenAttacksSlow(u8 square, Bitboard occupancy);
 Bitboard getPieceAttakcsSlow(u8 piece, u8 square, u8 side, Bitboard occupancy);
 
 // Fast, precomputed aproach
-inline Bitboard getPawnAttacks(u8 square, u8 side) {
+static inline Bitboard getPawnAttacks(u8 square, u8 side) {
 
     PUSH_STACK_TRACE("getPawnAttacks()");
     ASSERT_MSG(square < 64, "getPawnAttacks() failed: square index out of bounds");
@@ -54,7 +54,7 @@ inline Bitboard getPawnAttacks(u8 square, u8 side) {
     return pawnAttacks[(square << 1) | side];
 }
 
-inline Bitboard getKnightAttacks(u8 square) {
+static inline Bitboard getKnightAttacks(u8 square) {
 
     PUSH_STACK_TRACE("getKnightAttacks()");
     ASSERT_MSG(square < 64, "getKnightAttacks() failed: square index out of bounds");
@@ -63,7 +63,7 @@ inline Bitboard getKnightAttacks(u8 square) {
     return knightAttacks[square];
 }
 
-inline Bitboard getBishopAttacks(u8 square, Bitboard occupancy) {
+static inline Bitboard getBishopAttacks(u8 square, Bitboard occupancy) {
 
     PUSH_STACK_TRACE("getBishopAttacks()");
     ASSERT_MSG(square < 64, "getBishopAttacks() failed: square index out of bounds");
@@ -77,7 +77,7 @@ inline Bitboard getBishopAttacks(u8 square, Bitboard occupancy) {
     return bishopPtr[square][occupancy];
 }
 
-inline Bitboard getRookAttacks(u8 square, Bitboard occupancy) {
+static inline Bitboard getRookAttacks(u8 square, Bitboard occupancy) {
 
     PUSH_STACK_TRACE("getRookAttacks()");
     ASSERT_MSG(square < 64, "getRookAttacks() failed: square index out of bounds");
@@ -91,7 +91,7 @@ inline Bitboard getRookAttacks(u8 square, Bitboard occupancy) {
     return rookPtr[square][occupancy];
 }
 
-inline Bitboard getQueenAttacks(u8 square, Bitboard occupancy) {
+static inline Bitboard getQueenAttacks(u8 square, Bitboard occupancy) {
 
     PUSH_STACK_TRACE("getQueenAttacks()");
     ASSERT_MSG(square < 64, "getQueenAttacks() failed: square index out of bounds");
@@ -100,7 +100,7 @@ inline Bitboard getQueenAttacks(u8 square, Bitboard occupancy) {
     return getBishopAttacks(square, occupancy) | getRookAttacks(square, occupancy);
 }
 
-inline Bitboard getKingAttacks(u8 square) {
+static inline Bitboard getKingAttacks(u8 square) {
 
     PUSH_STACK_TRACE("getKingAttacks()");
     ASSERT_MSG(square < 64, "getKingAttacks() failed: square index out of bounds");
@@ -109,7 +109,7 @@ inline Bitboard getKingAttacks(u8 square) {
     return kingAttacks[square];
 }
 
-inline Bitboard getPieceAttakcs(u8 piece, u8 square, u8 side, Bitboard occupancy) {
+static inline Bitboard getPieceAttakcs(u8 piece, u8 square, u8 side, Bitboard occupancy) {
 
     PUSH_STACK_TRACE("getPieceAttakcs()");
     ASSERT_MSG(piece > 1 && piece < 14, "getPieceAttakcs() failed: piece type out of bounds");
@@ -128,8 +128,8 @@ inline Bitboard getPieceAttakcs(u8 piece, u8 square, u8 side, Bitboard occupancy
     }
 }
 
-// Bulk generation of pawn pushed
-inline Bitboard getPawnPushes(Bitboard bitboard, Bitboard occupancy, u8 side) {
+// Bulk generation of pawn pushes
+static inline Bitboard getPawnPushes(Bitboard bitboard, Bitboard occupancy, u8 side) {
 
     PUSH_STACK_TRACE("getPawnPushes()");
     ASSERT_MSG(side < 2, "getPawnPushes() failed: side can only have the value 0 (zero) or 1 (one)");
