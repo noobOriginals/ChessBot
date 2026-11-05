@@ -171,7 +171,7 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
             checkers |= lsb;
         }
 
-        //  pieces
+        // Pinned pieces
         if (target & king) {
             bb1 = betweenSQ(square, kingsq);
             bb2 = bb1 & board->all;
@@ -193,19 +193,18 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
         return moves;
     }
 
-    // Target is either checker and ray between king - checker (if present), or any square without a defender onto it
+    // Target is either checker and ray between king - checker (if present), or any non-friendly square
     target = checkers ? betweenSQ((u8) ctzll(checkers), kingsq) | checkers : notDefenders;
     while (defenders) {
         attacks = 0ull;
 
         // Get attacks
         square = popToLSB(&defenders, &lsb);
-        piece = ptype(board->mailbox[square]);
-        switch (piece) {
+        switch (ptype(board->mailbox[square])) {
             case PAWN:
                 // Special unpack for pawns
                 // Needs extra promotion unpack (last rank reached)
-                // But pawn attacks must always be captures, so the quiet unpack is no longer needed
+                // But pawn attacks must always be captures, so quiet unpack is no longer needed
                 attacks = getPawnAttacks(square, side) & target & attackers;
                 unpackCaptures(square, attacks & pinMask[square] & ~(RANK_1 | RANK_8), moves, count);
                 unpackPromoCaptures(square, attacks & pinMask[square] & (RANK_1 | RANK_8), moves, count);
@@ -220,7 +219,7 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
         }
 
         // Unpack into move array
-        // Use separate unpacking as it reduces code branches (i.e. the number of 'if's), speeding up execution
+        // Use separate unpacking as it reduces code branches (i.e. the number of if's), speeding up execution
         unpackQuietMoves(square, attacks & pinMask[square] & notAttackers, moves, count);
         unpackCaptures(square, attacks & pinMask[square] & attackers, moves, count);
     }
@@ -235,7 +234,7 @@ Move* getLegalMoves(Board* board, Move* moves, u32* count) {
 
     // Castle magic
     // King
-    // (board->castle & WHITE_KC) << 3 — Castle square
+    // board->castle & WHITE_KC << 3 — Castle square
     // (7 << 4) & attacked — Attack mask, must be 0
     // (3 << 5) & board->all — Occupnacy mask, must be 0
     // Queen:
